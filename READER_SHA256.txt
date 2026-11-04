@@ -1,0 +1,3 @@
+fcd538e5994b9bb833622d425ae346f4e0692f02d4b0025114a559f9b6286022  tools/repak.exe
+ffbf5aa7d13fed5d12ba68ba3af930a15aa5d0ff97cfb50a5965a498a941a6dd  tools/SDL2.dll
+13502e5a4d8f6b5f32252afebd6360f7302ccfaccf6b8dda65beff0be2d364a0  tools/umodel.exe

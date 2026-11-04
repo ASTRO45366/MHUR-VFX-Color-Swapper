@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+/build/
+/dist/
+/cache/
+/exports/
+/library/
+/library.zip
+/portraits/
+/game-updates/
+/game-update.json
+/settings.json
+/characters.json
+/startup-error.log

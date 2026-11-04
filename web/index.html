@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MHUR VFX Color Swapper</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{
+  --bg:#08090c; --panel:#0f1116; --card:#151821; --card2:#1a1e29; --line:#262b38; --line2:#3a4154;
+  --txt:#e9ecf3; --mut:#8a92a6; --acc:#7a8cff; --acc2:#b06bff; --ok:#3ddc97; --warn:#ffb648; --bad:#ff5d6c;
+  --input:#0e1016; --surface:#1c2130; --selected:#232a52; --panel-strong:#0c0e13; --focus:#7a8cff55; --modal-overlay:#000b; --warn-bg:#2a2110; --warn-line:#5a4415; --warn-txt:#f0d9a3;
+  color-scheme:dark; --r:14px; font-family:"Segoe UI",Inter,system-ui,-apple-system,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#2a3040;border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+#app{display:grid;grid-template-columns:316px 1fr;height:100%}
+
+/* ---------- sidebar ---------- */
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.side-scroll{flex:1;overflow-y:auto;padding:20px 18px 8px}
+.brand{display:flex;gap:10px;align-items:center}
+.logo{width:34px;height:34px;border-radius:10px;background:conic-gradient(from 200deg,#ff5a6c,#ffb648,#3ddc97,#4cc9ff,#7a8cff,#b06bff,#ff5a6c);box-shadow:0 0 18px #7a8cff55}
+h1{font-size:18px;margin:0;letter-spacing:.2px}
+.sub{color:var(--mut);font-size:12.5px;line-height:1.45;margin:8px 0 18px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center}
+.sel{position:relative}
+.selbtn{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:.15s}
+.selbtn:hover{border-color:var(--line2)}
+.selbtn.big{padding:14px;border-color:var(--line2);background:linear-gradient(180deg,var(--card2),var(--card))}
+.selbtn .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.selbtn .t small{display:block;color:var(--mut);font-size:11.5px}
+.selbtn[disabled]{opacity:.45;cursor:not-allowed}
+.chev{opacity:.6}
+.pop{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line2);border-radius:12px;box-shadow:0 18px 40px #000a;overflow:hidden;display:none}
+.pop.open{display:block}
+.pop input{width:100%;border:0;border-bottom:1px solid var(--line);background:var(--input);padding:11px 14px;outline:none}
+.pop .list{max-height:260px;overflow-y:auto}
+.opt{padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.opt:hover,.opt.on{background:var(--surface)}
+.opt small{color:var(--mut);margin-left:auto}
+.thumb{width:28px;height:28px;border-radius:8px;background:#222838 center/cover;flex:none}
+.pill-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pill{border:1px solid var(--line);background:var(--card);padding:5px 10px;border-radius:99px;font-size:12px;cursor:pointer;color:var(--mut)}
+.pill.on{color:var(--txt);border-color:var(--acc);background:var(--selected)}
+
+/* ---------- colour picker ---------- */
+.picker{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+#sv{position:relative;height:150px;border-radius:10px;cursor:crosshair;touch-action:none;
+  background:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,var(--hue,#f00))}
+#svk{position:absolute;width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #0007,0 2px 6px #0008;transform:translate(-50%,-50%);pointer-events:none}
+#hue{position:relative;height:12px;border-radius:99px;margin:14px 4px 6px;cursor:pointer;touch-action:none;
+  background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+#huek{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;border:3px solid #fff;background:var(--hc,#f00);box-shadow:0 0 0 1px #0007;transform:translate(-50%,-50%);pointer-events:none}
+.hexrow{display:flex;align-items:center;gap:8px;background:var(--input);border:1px solid var(--line);border-radius:12px;padding:6px 8px;margin-top:10px}
+.sw{width:30px;height:30px;border-radius:50%;border:1px solid #fff2;flex:none}
+.hexrow input{flex:1;min-width:0;background:transparent;border:0;outline:none;font-family:ui-monospace,Consolas,monospace;font-size:14px;letter-spacing:.5px}
+.ib{background:var(--card2);border:1px solid var(--line);border-radius:8px;width:30px;height:30px;cursor:pointer;display:grid;place-items:center;font-size:14px}
+.ib:hover{border-color:var(--line2)}
+.rgb{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.rgb label{font-size:10.5px;color:var(--mut);display:block}
+.rgb input{width:100%;background:var(--input);border:1px solid var(--line);border-radius:8px;padding:6px 8px;outline:none}
+.rgb input:focus,.hexrow:focus-within{border-color:var(--acc)}
+.slider{margin-top:12px}
+.slider .row{display:flex;justify-content:space-between;font-size:12px;color:var(--mut)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--txt);margin-top:10px;cursor:pointer}
+.chk small{display:block;color:var(--mut);font-size:11px}
+select.mode{width:100%;background:var(--input);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-top:10px;outline:none}
+.prevbar{display:flex;height:34px;border-radius:10px;overflow:hidden;margin-top:12px;border:1px solid var(--line)}
+.prevbar div{flex:1;transition:background .2s}
+
+/* ---------- queue + actions ---------- */
+.queue{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.qi{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 9px;font-size:12.5px}
+.qi .dot{width:14px;height:14px;border-radius:50%;flex:none}
+.qi .x{margin-left:auto;cursor:pointer;color:var(--mut);padding:0 4px}
+.qi .x:hover{color:var(--bad)}
+.empty{color:var(--mut);font-size:12px;padding:6px 2px}
+.actions{padding:14px 18px 18px;border-top:1px solid var(--line);background:var(--panel-strong)}
+.btn{width:100%;border:0;border-radius:12px;padding:15px;font-weight:800;letter-spacing:1.2px;cursor:pointer;transition:.15s}
+.btn.main{background:linear-gradient(90deg,var(--acc),var(--acc2));color:#fff;box-shadow:0 8px 26px #7a8cff44;font-size:14px}
+.btn.main:hover:not([disabled]){filter:brightness(1.12);transform:translateY(-1px)}
+.btn.sec{margin-top:10px;background:transparent;border:1px solid var(--line2);color:var(--txt);font-size:12.5px;padding:12px}
+.btn.sec:hover:not([disabled]){border-color:var(--acc);color:var(--txt)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.modname{width:100%;margin-top:10px;background:var(--input);border:1px solid var(--line);border-radius:10px;padding:9px 12px;outline:none;font-size:12.5px}
+.link{color:var(--mut);font-size:11.5px;text-decoration:underline;cursor:pointer;margin-top:10px;display:inline-block}
+.link:hover{color:#fff}
+
+/* ---------- main ---------- */
+main{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
+.top{padding:22px 30px 10px;display:flex;align-items:center;gap:14px}
+.top h2{margin:0;font-size:22px}
+.top .hint{color:var(--mut);font-size:13.5px}
+.back{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer}
+.back:hover{border-color:var(--line2)}
+.scroll{flex:1;overflow-y:auto;padding:8px 30px 40px}
+.search{margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;width:260px;outline:none}
+.search:focus{border-color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px}
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;cursor:pointer;
+  transition:transform .15s,border-color .15s,box-shadow .15s,background .15s;animation:pop .35s both}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card:hover{border-color:#5a67c9;transform:translateY(-3px) scale(1.012);background:var(--card2);box-shadow:0 12px 30px #0009}
+.card.dim{opacity:.5}.card.dim:hover{opacity:.85}
+.card.sel{border-color:var(--acc);background:var(--selected);box-shadow:0 0 0 2px #7a8cff55,0 12px 34px #7a8cff22}
+.card.sel::after{content:"✓ SELECTED";position:absolute;top:10px;left:10px;background:var(--acc);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:1px;padding:4px 9px;border-radius:99px}
+.art{aspect-ratio:4/3.3;background:var(--surface) center/cover no-repeat;position:relative;display:grid;place-items:center;overflow:hidden}
+.art .big{text-align:center;padding:0 14px;line-height:1.05;font-size:64px;font-weight:900;letter-spacing:-2px;color:#fff;text-shadow:0 4px 30px #000a;opacity:.92}
+.art .noimg{position:absolute;bottom:8px;right:10px;font-size:10px;color:#ffffffaa;background:#0006;padding:2px 7px;border-radius:99px}
+.meta{padding:12px 14px 14px}
+.meta .n{font-weight:700;font-size:15.5px}
+.meta .i{color:var(--mut);font-size:12.5px;margin-top:2px;font-family:ui-monospace,Consolas,monospace}
+.meta .s{color:var(--mut);font-size:11.5px;margin-top:6px}
+.swatches{position:absolute;left:0;right:0;bottom:0;height:9px;display:flex}
+.swatches i{flex:1}
+.badge{position:absolute;top:10px;right:10px;background:#0009;border:1px solid #fff3;font-size:10.5px;padding:3px 8px;border-radius:99px;display:flex;gap:6px;align-items:center}
+.badge b{width:9px;height:9px;border-radius:50%;display:inline-block}
+.vfxhead{display:flex;flex-direction:column;align-items:center;margin:6px 0 22px}
+.vfxhead .n{font-size:30px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
+.vfxhead .i{color:var(--mut);font-family:ui-monospace,Consolas,monospace}
+.vfxhead .tools{display:flex;gap:8px;margin-top:10px}
+.center{position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:20;backdrop-filter:blur(3px)}
+.center>div{text-align:center}
+.spin{width:44px;height:44px;border-radius:50%;border:4px solid #262b38;border-top-color:var(--acc);margin:0 auto 16px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bar{width:260px;height:6px;background:var(--surface);border-radius:9px;margin:12px auto 0;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));width:0;transition:width .2s}
+.msg{color:var(--mut);text-align:center;padding:60px 0;font-size:16px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1b1f2c;border:1px solid var(--line2);padding:12px 18px;border-radius:12px;z-index:60;box-shadow:0 12px 40px #000b;max-width:70vw}
+.toast.err{border-color:var(--bad)}
+.modal{position:fixed;inset:0;background:var(--modal-overlay);display:none;place-items:center;z-index:50}
+.modal.open{display:grid}
+.mbox{background:var(--panel);border:1px solid var(--line2);border-radius:18px;padding:26px;width:min(620px,92vw);max-height:86vh;overflow:auto}
+.mbox h3{margin:0 0 4px;font-size:20px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:14px 0;font-size:13.5px}
+.kv span:nth-child(odd){color:var(--mut)}
+.warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--warn-txt);margin-top:10px}
+.warn ul{margin:6px 0 0 16px;padding:0}
+.steps{color:var(--txt);font-size:13px;line-height:1.6;margin-top:12px}
+.steps code{background:var(--input);padding:1px 6px;border-radius:5px;font-size:12px}
+.mrow{display:flex;gap:10px;margin-top:18px}
+.mrow .btn{padding:13px}
+
+/* All themes are local CSS: no images, web fonts or extra runtime. */
+:root[data-theme="amoled"]{--bg:#000;--panel:#080808;--panel-strong:#050505;--card:#111;--card2:#191919;--input:#050505;--surface:#151515;--line:#292929;--line2:#484848;--txt:#f5f5f5;--mut:#a3a3a3;--acc:#b9a5ff;--acc2:#dbbaff;--selected:#272035}
+:root[data-theme="ocean"]{--bg:#05131e;--panel:#0a1c2a;--panel-strong:#071722;--card:#102b3d;--card2:#17384b;--input:#071925;--surface:#123449;--line:#24475c;--line2:#38677c;--txt:#e7f6ff;--mut:#97bdcf;--acc:#42bce8;--acc2:#4987e7;--selected:#16435d}
+:root[data-theme="forest"]{--bg:#08130e;--panel:#101e17;--panel-strong:#0a1711;--card:#172b20;--card2:#20382a;--input:#0b1b12;--surface:#193024;--line:#2d4736;--line2:#496652;--txt:#e7f6e9;--mut:#a0bca7;--acc:#51b982;--acc2:#6fa960;--selected:#244831}
+:root[data-theme="crimson"]{--bg:#17090f;--panel:#241017;--panel-strong:#1b0b12;--card:#321923;--card2:#40202d;--input:#1e0c15;--surface:#361924;--line:#56303d;--line2:#805061;--txt:#ffeaf1;--mut:#d2a4b4;--acc:#ef638a;--acc2:#c95fbc;--selected:#55243a}
+:root[data-theme="sunset"]{--bg:#1c1010;--panel:#2b1917;--panel-strong:#231311;--card:#3b2420;--card2:#493028;--input:#231513;--surface:#40271f;--line:#604035;--line2:#89614f;--txt:#fff0e6;--mut:#d1b2a0;--acc:#ed9a5b;--acc2:#dc6970;--selected:#59352a}
+:root[data-theme="light"]{color-scheme:light;--bg:#f0f3fa;--panel:#fff;--panel-strong:#f8faff;--card:#f8faff;--card2:#edf1fb;--input:#fff;--surface:#e7edf9;--line:#d1d9e9;--line2:#a9b7d0;--txt:#17243a;--mut:#52627b;--acc:#515fd1;--acc2:#8b4bc4;--selected:#e0e5ff;--modal-overlay:#17243a88;--warn-bg:#fff5dd;--warn-line:#e3c078;--warn-txt:#6a4505}
+.brand h1{flex:1;font-size:17px}
+.settings-toggle{flex:none;width:34px;height:34px;padding:0;background:var(--card);border:1px solid var(--line2);border-radius:10px;cursor:pointer;font-size:19px}
+.settings-toggle:hover{border-color:var(--acc)}
+.settings-panel{color:var(--txt);background:var(--panel);border:1px solid var(--line2);border-radius:18px;padding:24px;width:min(510px,92vw);max-height:90vh;overflow:auto;box-shadow:0 24px 80px #0005}
+.settings-panel::backdrop{background:var(--modal-overlay);backdrop-filter:blur(4px)}
+.settings-head{display:flex;justify-content:space-between;align-items:center;gap:16px}.settings-head h2{margin:0;font-size:21px}
+.settings-panel p{color:var(--mut);font-size:13px;line-height:1.6}.settings-panel label.theme-label{display:block;font-size:13px;margin-top:20px}
+.theme-options{width:100%;margin-top:8px;padding:11px;background:var(--input);border:1px solid var(--line2);border-radius:10px}
+.theme-sample{display:flex;gap:8px;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:12px;margin:12px 0 18px}.theme-sample i{display:block;height:30px;flex:1;border-radius:7px}
+:root[data-compact="true"] #sv{height:100px}:root[data-compact="true"] .art{aspect-ratio:4/2.3}:root[data-compact="true"] .btn{padding:10px}:root[data-compact="true"] .meta{padding:9px 12px}:root[data-compact="true"] .grid{gap:12px}
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(max-width:850px){#app{grid-template-columns:290px 1fr}.top{padding:16px}.scroll{padding:8px 16px 24px}.grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}.search{width:180px}.top .hint{font-size:12px}}
+
+.character-portrait{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0%;position:absolute;filter:drop-shadow(0 6px 10px #0006)}
+.card.character .art{display:block}.portrait-placeholder{height:100%;display:grid;place-items:center;color:#fff9;font-size:13px}
+.game-settings{border-top:1px solid var(--line);margin-top:22px;padding-top:10px}.game-settings h3{font-size:16px;margin:12px 0}
+.game-input{display:block;width:100%;margin-top:8px;background:var(--input);border:1px solid var(--line2);border-radius:10px;padding:10px;color:var(--txt);font-size:12px}
+.game-actions{display:flex;gap:8px;margin-top:10px}.game-actions button{margin:0;font-size:12px;padding:10px;letter-spacing:.4px}
+.setup-card{max-width:560px;margin:28px auto;background:var(--panel);border:1px solid var(--line2);border-radius:18px;padding:28px}.setup-card h3{margin:0 0 12px;font-size:23px}.setup-card p{color:var(--mut);font-size:14px;line-height:1.55}.setup-card .btn{margin-top:12px}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="side-scroll">
+      <div class="brand"><div class="logo"></div><h1>VFX Color Swapper</h1><button class="settings-toggle" id="settingsOpen" aria-label="App settings" title="App settings">⚙</button></div>
+      <div class="sub">Change character VFX colors and preview available effects.</div>
+
+      <div class="lbl">Select Character</div>
+      <div class="sel" id="charSel">
+        <button class="selbtn big" id="charBtn"><div class="thumb" id="charThumb"></div><div class="t" id="charTxt">Choose a character…</div><span class="chev">▾</span></button>
+        <div class="pop" id="charPop"><input id="charQ" placeholder="Search name or ID…" autocomplete="off"><div class="list" id="charList"></div></div>
+      </div>
+      <div class="pill-row" id="varRow"></div>
+
+      <div class="lbl">Select VFX / Effect</div>
+      <div class="sel" id="vfxSel">
+        <button class="selbtn" id="vfxBtn" disabled><div class="t" id="vfxTxt">Select a character first</div><span class="chev">▾</span></button>
+        <div class="pop" id="vfxPop"><div class="list" id="vfxList"></div></div>
+      </div>
+
+      <div class="lbl">Color</div>
+      <div class="picker">
+        <div id="sv"><div id="svk"></div></div>
+        <div id="hue"><div id="huek"></div></div>
+        <div class="hexrow">
+          <div class="sw" id="sw"></div><span style="color:var(--mut)">#</span>
+          <input id="hex" maxlength="7" spellcheck="false">
+          <button class="ib" id="copy" title="Copy hex">⧉</button>
+          <button class="ib" id="eye" title="Pick from screen" style="display:none">✎</button>
+        </div>
+        <div class="rgb">
+          <div><label>R</label><input id="r" type="number" min="0" max="255"></div>
+          <div><label>G</label><input id="g" type="number" min="0" max="255"></div>
+          <div><label>B</label><input id="b" type="number" min="0" max="255"></div>
+        </div>
+        <div class="slider"><div class="row"><span>Brightness / intensity</span><span id="intv">100%</span></div>
+          <input type="range" id="int" min="20" max="250" value="100"></div>
+        <div class="slider"><div class="row"><span>Effect amount</span><span id="amountv">100%</span></div>
+          <input type="range" id="amount" min="0" max="100" value="100" step="1" aria-label="Effect amount">
+          <small style="color:var(--mut)">100 = default particle amount · 0 = stop supported particle spawns.<br>Palette preview only; test appearance in-game.</small></div>
+        <select class="mode" id="mode">
+          <option value="original">Keep original colors (amount only)</option>
+          <option value="shift" selected>Shift hue (keeps color variety)</option>
+          <option value="unify">Unify (everything becomes this hue)</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="white"><span>Tint white cores too<small>Off keeps white/grey highlights white</small></span></label>
+        <label class="chk"><input type="checkbox" id="ind"><span>Include enemy/friend area indicators<small>Off keeps danger warnings readable</small></span></label>
+        <label class="chk"><input type="checkbox" id="two"><span>Two-color mode<small>Split by effect, emitter and material names</small></span></label>
+        <div id="secBox" style="display:none">
+          <div class="hexrow"><input type="color" id="secpick" value="#000000" style="width:30px;height:30px;border:0;background:none;padding:0;cursor:pointer">
+            <span style="color:var(--mut)">#</span><input id="sechex" maxlength="7" value="000000" spellcheck="false">
+            <button class="ib" data-sw="000000" title="Black" style="background:#000"></button><button class="ib" data-sw="FFFFFF" title="White" style="background:#fff"></button></div>
+          <div style="font-size:11px;color:var(--mut);margin:10px 0 2px">Second color applies to:</div>
+          <div id="partList"></div>
+        </div>
+        <div class="prevbar" id="prev" title="Live preview of the effect palette"></div>
+      </div>
+
+      <div class="lbl">Overrides (applied after the all-characters color)</div>
+      <div class="queue" id="queue"></div>
+      <span class="link" id="importLink">Import default assets from a file (.zip / .pak)…</span><br><span class="link" id="importPath">Import a whole extracted folder (all characters)…</span>
+      <input type="file" id="importFile" accept=".zip,.pak" style="display:none">
+    </div>
+    <div class="actions">
+      <button class="btn main" id="genAll" disabled>GENERATE PAK — ALL CHARACTERS</button>
+      <input class="modname" id="modname" placeholder="Pak name (e.g. RedVFX_All)">
+      <button class="btn sec" id="apply" disabled>ADD SELECTED EFFECT AS OVERRIDE</button>
+      <button class="btn sec" id="export" style="margin-top:8px" disabled>EXPORT OVERRIDES ONLY</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="top" id="top"></div>
+    <div class="scroll" id="scroll"></div>
+    <div class="center" id="loading"><div><div class="spin"></div><div id="ltxt">Loading character assets…</div><div class="bar"><i id="lbar"></i></div></div></div>
+  </main>
+</div>
+
+<div class="modal" id="modal"><div class="mbox" id="mbox"></div></div>
+<input type="file" id="pfile" accept="image/png,image/jpeg,image/webp" style="display:none">
+
+
+<dialog id="settingsDialog" class="settings-panel" aria-labelledby="settingsTitle">
+ <div class="settings-head"><h2 id="settingsTitle">App settings</h2><button class="settings-toggle" id="settingsClose" aria-label="Close settings">×</button></div>
+ <p>Choose your workspace appearance. Settings are saved on this computer and never change your exported effects.</p>
+ <label for="themeChoice" class="theme-label">Theme</label>
+ <select id="themeChoice" class="theme-options">
+  <option value="midnight">Midnight violet</option><option value="amoled">AMOLED black</option>
+  <option value="ocean">Ocean blue</option><option value="forest">Forest green</option>
+  <option value="crimson">Crimson rose</option><option value="sunset">Warm sunset</option>
+  <option value="light">Daylight</option><option value="system">Follow Windows appearance</option>
+ </select>
+ <div class="theme-sample" aria-hidden="true"><i style="background:var(--card2)"></i><i style="background:var(--selected)"></i><i style="background:var(--acc)"></i><i style="background:var(--acc2)"></i></div>
+ <label class="chk"><input type="checkbox" id="compactUI"><span>Compact layout<small>Smaller cards and controls, with more room for effects.</small></span></label>
+ <label class="chk"><input type="checkbox" id="reduceMotion"><span>Reduce animations<small>Keep the interface still while you work.</small></span></label>
+ <p id="settingsSaved" role="status">Changes save automatically.</p>
+ <section class="game-settings" aria-labelledby="gameSettingsTitle">
+ <h3 id="gameSettingsTitle">Game updates</h3>
+ <p>Read your installed game after a patch to add complete characters, pictures and effects. The app saves a compressed local library. Your installed game stays unchanged.</p>
+ <label for="gamePath" class="theme-label">Game folder or Content/Paks folder</label>
+ <input id="gamePath" class="game-input" placeholder="Choose your MHUR installation folder" spellcheck="false" autocomplete="off">
+ <div class="game-actions"><button type="button" class="btn sec" id="detectGame">FIND INSTALLED GAME</button></div>
+ <label for="gameAES" class="theme-label">Game key (optional)</label>
+ <input id="gameAES" class="game-input" type="password" placeholder="Leave blank to use the built-in game key" autocomplete="off">
+ <label class="chk"><input type="checkbox" id="autoGame"><span>Check for game updates when this app starts<small>After setting the folder, new game data is added automatically on the next launch.</small></span></label>
+ <label class="chk"><input type="checkbox" id="forceGame"><span>Rescan even if the game files look unchanged</span></label>
+ <div class="game-actions"><button type="button" class="btn main" id="updateGame">UPDATE FROM GAME FILES</button></div>
+ <p id="gameUpdateInfo" role="status">Loading game update information…</p>
+ <p>If a future patch changes the archive format or key, the previous working roster is kept.</p>
+ </section>
+ <p>Version 2.2 · Public edition</p>
+</dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const S={chars:[],char:null,vari:'base',groups:[],group:null,color:{h:0.0230,s:0.8408,v:0.9608},queue:[],ready:false,previews:{},excl:new Set()};
+const api=async(u,o)=>{const r=await fetch(u,o);const j=await r.json();if(!r.ok)throw new Error(j.error||r.statusText);return j};
+const post=(u,b)=>api(u,{method:'POST',body:JSON.stringify(b)});
+let prefs={theme:'midnight',compact:false,reduce_motion:false,game_folder:'',game_aes:'',auto_game_update:true},saveTimer;
+const systemAppearance=window.matchMedia('(prefers-color-scheme: light)');
+function applyPrefs(next){
+ prefs={...prefs,...next};
+ document.documentElement.dataset.theme=prefs.theme==='system'?(systemAppearance.matches?'light':'midnight'):prefs.theme;
+ document.documentElement.dataset.compact=String(prefs.compact);
+ document.documentElement.dataset.motion=prefs.reduce_motion?'reduced':'normal';
+ $('#gamePath').value=prefs.game_folder||'';$('#gameAES').value=prefs.game_aes||'';$('#autoGame').checked=prefs.auto_game_update!==false;
+ $('#themeChoice').value=prefs.theme;$('#compactUI').checked=prefs.compact;$('#reduceMotion').checked=prefs.reduce_motion;
+}
+systemAppearance.addEventListener('change',()=>{if(prefs.theme==='system')applyPrefs(prefs)});
+const prefsReady=api('/api/settings').then(applyPrefs).catch(()=>{$('#settingsSaved').textContent='Settings could not be loaded.'});
+$('#settingsOpen').onclick=()=>{$('#settingsDialog').showModal();loadGameInfo()};
+$('#settingsClose').onclick=()=>$('#settingsDialog').close();
+$('#settingsDialog').addEventListener('click',e=>{if(e.target===$('#settingsDialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close()}});
+function changePrefs(){
+ applyPrefs({theme:$('#themeChoice').value,compact:$('#compactUI').checked,reduce_motion:$('#reduceMotion').checked});
+ $('#settingsSaved').textContent='Saving…';clearTimeout(saveTimer);
+ saveTimer=setTimeout(async()=>{try{await post('/api/settings',prefs);$('#settingsSaved').textContent='Saved on this computer.'}catch(e){$('#settingsSaved').textContent='Could not save: '+e.message}},180);
+}
+['themeChoice','compactUI','reduceMotion'].forEach(id=>$('#'+id).addEventListener('change',changePrefs));
+async function loadGameInfo(){
+ try{const info=await api('/api/game/status');if(!$('#gamePath').value&&info.detected_folder)$('#gamePath').value=info.detected_folder;
+ $('#gameUpdateInfo').textContent=info.state==='error'?info.text:info.last_update?`Last refresh: ${info.last_update} · ${info.characters} characters${info.changed?' · New game files detected':''}`:'Set the game folder, then read its character pictures and effects.';
+ }catch(e){$('#gameUpdateInfo').textContent=e.message}
+}
+async function saveGamePrefs(){
+ const values={game_folder:$('#gamePath').value.trim(),game_aes:$('#gameAES').value.trim(),auto_game_update:$('#autoGame').checked};
+ const saved=await post('/api/settings',values);Object.assign(prefs,saved);return values;
+}
+['gamePath','gameAES','autoGame'].forEach(id=>$('#'+id).addEventListener('change',()=>saveGamePrefs().catch(e=>toast(e.message,true))));
+$('#detectGame').onclick=async()=>{const info=await api('/api/game/status');if(info.detected_folder){$('#gamePath').value=info.detected_folder;await saveGamePrefs();$('#gameUpdateInfo').textContent='Game folder found. Press Update from game files to read its characters.'}else $('#gameUpdateInfo').textContent='Could not find MHUR automatically. Paste its installation folder above.'};
+$('#updateGame').onclick=async()=>{
+ try{const values=await saveGamePrefs(),force=$('#forceGame').checked;$('#settingsDialog').close();busy('Reading installed game files…',0);
+ const {job}=await post('/api/game/update',{...values,force});const result=await waitJob(job,'Updating character data…');
+ S.char=null;S.group=null;S.groups=[];S.previews={};S.queue=S.queue.filter(a=>!result.removed?.includes(a.char));await refresh();idle();render();
+ toast(`${result.text} ${result.characters} characters${result.added?.length?' · '+result.added.length+' added':''}`);await loadGameInfo();
+ }catch(e){idle();$('#gameUpdateInfo').textContent=e.message;toast(e.message,true)}
+};
+
+
+function toast(t,err){const d=document.createElement('div');d.className='toast'+(err?' err':'');d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),4200)}
+function busy(txt,p){$('#loading').style.display='grid';$('#ltxt').textContent=txt;$('#lbar').style.width=(p==null?0:p*100)+'%'}
+function idle(){$('#loading').style.display='none'}
+setInterval(()=>fetch('/api/ping').catch(()=>{}),4000);fetch('/api/ping');
+
+/* ---------- colour maths ---------- */
+const hsv2rgb=(h,s,v)=>{const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
+  const m=[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i%6];return m.map(x=>Math.round(x*255))};
+const rgb2hsv=(r,g,b)=>{r/=255;g/=255;b/=255;const M=Math.max(r,g,b),m=Math.min(r,g,b),d=M-m;let h=0;
+  if(d){h=M==r?((g-b)/d)%6:M==g?(b-r)/d+2:(r-g)/d+4;h/=6;if(h<0)h+=1}return{h,s:M?d/M:0,v:M}};
+const hex=()=>'#'+hsv2rgb(S.color.h,S.color.s,S.color.v).map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase();
+
+/* ---------- picker ---------- */
+function drag(el,fn){let on=false;const f=e=>{const r=el.getBoundingClientRect();fn(Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(e.clientY-r.top)/r.height)))};
+  el.addEventListener('pointerdown',e=>{on=true;el.setPointerCapture(e.pointerId);f(e)});
+  el.addEventListener('pointermove',e=>on&&f(e));el.addEventListener('pointerup',()=>on=false)}
+drag($('#sv'),(x,y)=>{S.color.s=x;S.color.v=1-y;colorChanged()});
+drag($('#hue'),x=>{S.color.h=Math.min(.9999,x);colorChanged()});
+let inputLock=false;
+function paintPicker(){
+  const c=S.color,h=hex(),[r,g,b]=hsv2rgb(c.h,c.s,c.v);
+  $('#sv').style.setProperty('--hue','#'+hsv2rgb(c.h,1,1).map(x=>x.toString(16).padStart(2,'0')).join(''));
+  $('#svk').style.left=c.s*100+'%';$('#svk').style.top=(1-c.v)*100+'%';
+  $('#huek').style.left=c.h*100+'%';$('#huek').style.setProperty('--hc','#'+hsv2rgb(c.h,1,1).map(x=>x.toString(16).padStart(2,'0')).join(''));
+  $('#sw').style.background=h;
+  if(!inputLock){$('#hex').value=h.slice(1);$('#r').value=r;$('#g').value=g;$('#b').value=b}
+}
+$('#hex').addEventListener('input',e=>{const v=e.target.value.replace('#','');if(/^[0-9a-fA-F]{6}$/.test(v)){const n=v.match(/../g).map(x=>parseInt(x,16));Object.assign(S.color,rgb2hsv(...n));inputLock=true;colorChanged();inputLock=false}});
+['r','g','b'].forEach(id=>$('#'+id).addEventListener('input',()=>{const n=['r','g','b'].map(k=>Math.max(0,Math.min(255,+$('#'+k).value||0)));Object.assign(S.color,rgb2hsv(...n));inputLock=true;colorChanged();inputLock=false}));
+$('#copy').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(hex());toast('Copied '+hex())};
+if(window.EyeDropper){$('#eye').style.display='grid';$('#eye').onclick=async()=>{try{const r=await new EyeDropper().open();const n=r.sRGBHex.slice(1).match(/../g).map(x=>parseInt(x,16));Object.assign(S.color,rgb2hsv(...n));colorChanged()}catch(e){}}}
+$('#amount').oninput=()=>{$('#amountv').textContent=$('#amount').value+'%';schedulePreview()};
+$('#int').oninput=()=>{$('#intv').textContent=$('#int').value+'%';schedulePreview()};
+['mode','white','ind'].forEach(i=>$('#'+i).addEventListener('change',schedulePreview));
+let pt=null;
+function colorChanged(){paintPicker();schedulePreview()}
+function cur(){return{...settings(),char:S.char.id,var:S.vari,group:S.group.key}}
+let previewVersion=0;
+function schedulePreview(){const version=++previewVersion;if(!S.group)return;clearTimeout(pt);const request=cur(),key=gkey();pt=setTimeout(async()=>{
+  try{const p=(await post('/api/preview',request)).palette;if(version!==previewVersion||!S.group||gkey()!==key)return;S.previews[key]=p;renderPrev(p);paintCard()}catch(e){if(version===previewVersion)toast(e.message,true)}},120)}
+const gkey=()=>S.char.id+'|'+S.vari+'|'+S.group.key;
+function renderPrev(p){$('#prev').innerHTML=p.map(c=>`<div style="background:${c}"></div>`).join('')}
+
+/* ---------- two-colour mode ---------- */
+const PARTS=[['trail','Trails & tails',1],['smoke','Smoke, dust & debris',1],['impact','Hit & impact',0],['aura','Body, aura & hand',0],['light','Point lights',0]];
+$('#partList').innerHTML=PARTS.map(([k,l,on])=>`<label class="chk" style="margin-top:6px"><input type="checkbox" class="part" value="${k}" ${on?'checked':''}><span>${l}</span></label>`).join('');
+const secHex=()=>'#'+($('#sechex').value.replace('#','')||'000000').toUpperCase();
+function secondary(){return $('#two').checked&&/^#[0-9A-F]{6}$/.test(secHex())?{hex:secHex(),parts:[...document.querySelectorAll('.part:checked')].map(x=>x.value)}:null}
+$('#two').onchange=()=>{$('#secBox').style.display=$('#two').checked?'block':'none';schedulePreview()};
+$('#secpick').oninput=e=>{$('#sechex').value=e.target.value.slice(1).toUpperCase();schedulePreview()};
+$('#sechex').oninput=()=>{if(/^[0-9a-fA-F]{6}$/.test($('#sechex').value))$('#secpick').value='#'+$('#sechex').value;schedulePreview()};
+document.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>{$('#sechex').value=b.dataset.sw;$('#secpick').value='#'+b.dataset.sw;schedulePreview()});
+document.querySelectorAll('.part').forEach(c=>c.onchange=schedulePreview);
+
+/* ---------- dropdowns ---------- */
+function popToggle(id,open){$(id).classList.toggle('open',open)}
+document.addEventListener('click',e=>{if(!e.target.closest('.sel'))document.querySelectorAll('.pop').forEach(p=>p.classList.remove('open'))});
+$('#charBtn').onclick=()=>{popToggle('#charPop',!$('#charPop').classList.contains('open'));$('#charQ').focus();fillCharList()};
+$('#charQ').oninput=fillCharList;
+function fillCharList(){const q=$('#charQ').value.toLowerCase();
+  $('#charList').innerHTML=S.chars.filter(c=>(c.name+' '+c.id).toLowerCase().includes(q)).map(c=>`<div class="opt ${S.char&&S.char.id==c.id?'on':''}" data-id="${c.id}"><div class="thumb" style="${c.portrait?`background-image:url(${c.portrait})`:''}"></div>${esc(c.name)}<small>${c.id}</small></div>`).join('')||'<div class="opt">No match</div>';
+  document.querySelectorAll('#charList .opt[data-id]').forEach(o=>o.onclick=()=>{popToggle('#charPop',false);pickChar(o.dataset.id)})}
+$('#vfxBtn').onclick=()=>{if(!S.groups.length)return;popToggle('#vfxPop',!$('#vfxPop').classList.contains('open'))};
+function fillVfxList(){$('#vfxList').innerHTML=S.groups.map(g=>`<div class="opt ${S.group&&S.group.key==g.key?'on':''}" data-k="${g.key}">${g.label}<small>${g.effects} fx</small></div>`).join('');
+  document.querySelectorAll('#vfxList .opt').forEach(o=>o.onclick=()=>{popToggle('#vfxPop',false);pickGroup(o.dataset.k)})}
+
+/* ---------- views ---------- */
+function gradFor(id){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))%360;return`linear-gradient(135deg,hsl(${h},55%,28%),hsl(${(h+50)%360},60%,14%))`}
+function renderTop(){
+  const t=$('#top');
+  if(!S.char){t.innerHTML=`<div><h2>Characters</h2><div class="hint">Select a character to view available VFX.</div></div><input class="search" id="gridQ" placeholder="Search characters…">`;
+    $('#gridQ').oninput=renderChars}
+  else{t.innerHTML=`<button class="back" id="back">← Characters</button><div class="hint">Pick an effect, choose a color, then press <b>ADD SELECTED EFFECT AS OVERRIDE</b>.</div>`;$('#back').onclick=()=>{S.char=null;S.group=null;S.groups=[];refreshSide();render()}}
+}
+// Trim transparent margins for display so every character's face sits near
+// the top of the same-sized card, including newly decoded native PNGs.
+function framePortrait(img){
+ try{
+  if(!img.complete||!img.naturalWidth||!img.parentElement)return;
+  if(!img._portraitBounds){
+   const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+   const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(img,0,0);
+   const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;
+   let left=canvas.width,top=canvas.height,right=0,bottom=0;
+   for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++)if(pixels[(y*canvas.width+x)*4+3]>12){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y)}
+   img._portraitBounds=right>=left&&bottom>=top?[left,top,right-left+1,bottom-top+1]:[0,0,canvas.width,canvas.height];
+  }
+  const [left,top,width]=img._portraitBounds,scale=(img.parentElement.clientWidth-12)/width;
+  img.style.width=img.naturalWidth*scale+'px';img.style.height=img.naturalHeight*scale+'px';
+  img.style.left=(6-left*scale)+'px';img.style.top=(10-top*scale)+'px';img.style.objectFit='fill';
+ }catch(e){img.style.objectFit='contain'}
+}
+window.addEventListener('resize',()=>requestAnimationFrame(()=>document.querySelectorAll('.character-portrait').forEach(framePortrait)));
+function charCard(c,i){
+  const picture=c.portrait?`<img class="character-portrait" src="${c.portrait}" alt="${esc(c.name)}" loading="lazy" decoding="async" draggable="false" onload="framePortrait(this)">`:'<div class="portrait-placeholder">Portrait unavailable</div>';
+  return`<div class="card character ${S.char&&S.char.id==c.id?'sel':''} ${c.effects?'':'dim'}" data-id="${c.id}" style="animation-delay:${Math.min(i,20)*25}ms">
+   <div class="art" style="background:${gradFor(c.id)}">${picture}</div>
+   <div class="meta"><div class="n">${esc(c.name)}</div><div class="i">${c.id}</div><div class="s">${c.effects?c.effects+' effect files'+(c.variants.length>1?' · '+c.variants.length+' variations':''):'No effect files imported yet'}</div></div>${S.excl.has(c.id)?'<div class="badge">EXCLUDED</div>':''}</div>`}
+function renderChars(){
+  if(!S.chars.length){
+    $('#scroll').innerHTML=`<section class="setup-card"><h3>Set up your game library</h3><p>Read your installed My Hero Ultra Rumble files to load character portraits and effects. The first import can take a couple of minutes.</p><button class="btn main" id="setupGame">SET UP FROM INSTALLED GAME</button></section>`;
+    $('#setupGame').onclick=async()=>{$('#settingsDialog').showModal();await loadGameInfo();$('#gamePath').focus();$('#gameSettingsTitle').scrollIntoView({block:'start'})};
+    return;
+  }
+  const q=($('#gridQ')&&$('#gridQ').value||'').toLowerCase();
+  const list=S.chars.filter(c=>(c.name+' '+c.id).toLowerCase().includes(q));
+  $('#scroll').innerHTML=list.length?`<div class="grid">${list.map(charCard).join('')}</div>`:`<div class="msg">${S.chars.length?'No characters match.':'No characters found.'}</div>`;
+  document.querySelectorAll('.card[data-id]').forEach(el=>el.onclick=()=>pickChar(el.dataset.id))}
+function vfxCard(g,i){
+  const pal=S.previews[S.char.id+'|'+S.vari+'|'+g.key]||g.palette;
+  const q=S.queue.find(x=>x.key==S.char.id+'|'+S.vari+'|'+g.key);
+  const shown=q?q.palette:pal;
+  return`<div class="card ${S.group&&S.group.key==g.key?'sel':''}" data-k="${g.key}" style="animation-delay:${i*40}ms">
+   <div class="art" id="art-${g.key}" style="background:${grad(shown)}"><div class="big" style="font-size:30px;letter-spacing:1px;text-shadow:0 2px 14px #000">${g.label.toUpperCase()}</div>
+    ${q?`<div class="badge"><b style="background:${q.hex}"></b>SWAP QUEUED</div>`:''}
+    <div class="swatches">${shown.map(c=>`<i style="background:${c}"></i>`).join('')}</div></div>
+   <div class="meta"><div class="n">${g.label}</div><div class="i">${g.id}</div><div class="s">${g.desc} · ${g.effects} effects, ${g.materials} materials</div></div></div>`}
+function grad(p){if(!p.length)return'#1c2130';const q=p.filter(c=>c.toLowerCase()!='#ffffff'&&!/^#f[0-9a-f]f[0-9a-f]f/i.test(c));const c=q.length?q:p;const a=c[0],b=c[Math.min(1,c.length-1)],d=c[Math.min(2,c.length-1)];
+  return`radial-gradient(circle at 25% 20%,${a}cc,transparent 58%),radial-gradient(circle at 80% 75%,${b}aa,transparent 60%),radial-gradient(circle at 60% 15%,${d}77,transparent 50%),linear-gradient(135deg,#171b28,#090a0f)`}
+function renderVfx(){
+  const c=S.char,vs=c.variants.length>1?`<div class="tools">${c.variants.map(v=>`<span class="pill ${v.key==S.vari?'on':''}" data-v="${v.key}">${v.label}</span>`).join('')}</div>`:'';
+  $('#scroll').innerHTML=`<div class="vfxhead"><div class="n">${esc(c.name)}</div><div class="i">${c.id}</div>
+     <div class="tools"><span class="pill ${S.excl.has(c.id)?'':'on'}" id="incl">${S.excl.has(c.id)?'✗ Not in pak':'✓ Included in pak'}</span><span class="pill" id="setpic">Change picture</span><span class="pill" id="rename">Rename</span></div>${vs}</div>
+     ${S.groups.length?`<div class="grid">${S.groups.map(vfxCard).join('')}</div>`:`<div class="msg">No effect files for ${esc(c.name)} yet.<br><small>Some characters have no effects in the game. If it should have some, import its extracted Effect folder from the sidebar.</small></div>`}`;
+  $('#incl').onclick=()=>{S.excl.has(c.id)?S.excl.delete(c.id):S.excl.add(c.id);render()};
+  document.querySelectorAll('.card[data-k]').forEach(el=>el.onclick=()=>pickGroup(el.dataset.k));
+  document.querySelectorAll('.pill[data-v]').forEach(el=>el.onclick=()=>loadGroups(el.dataset.v));
+  $('#setpic').onclick=()=>$('#pfile').click();
+  $('#rename').onclick=async()=>{const n=prompt('Character name for '+c.id,c.name==='Unnamed character'?'':c.name);if(n){await post('/api/rename',{char:c.id,name:n});await refresh();render()}}}
+function paintCard(){const g=S.group;if(!g)return;const el=$('#art-'+g.key);if(!el)return;const p=S.previews[gkey()]||g.palette;el.style.background=grad(p);el.querySelector('.swatches').innerHTML=p.map(c=>`<i style="background:${c}"></i>`).join('')}
+function render(){renderTop();S.char?renderVfx():renderChars();refreshSide()}
+function refreshSide(){
+  const c=S.char;
+  $('#charTxt').innerHTML=c?`${esc(c.name)}<small>${c.id}</small>`:'Choose a character…';
+  $('#charThumb').style.backgroundImage=c&&c.portrait?`url(${c.portrait})`:'';
+  $('#varRow').innerHTML=c&&c.variants.length>1?c.variants.map(v=>`<span class="pill ${v.key==S.vari?'on':''}" data-v="${v.key}">${v.label}</span>`).join(''):'';
+  document.querySelectorAll('#varRow .pill').forEach(el=>el.onclick=()=>loadGroups(el.dataset.v));
+  const g=S.group;
+  $('#vfxBtn').disabled=!S.groups.length;
+  $('#vfxTxt').innerHTML=g?`${g.label}<small>${g.id}</small>`:(S.groups.length?'Choose an effect…':'Select a character first');
+  fillVfxList();
+  $('#apply').disabled=!g;$('#genAll').disabled=!S.chars.some(c=>c.effects);
+  $('#export').disabled=!S.queue.length;
+  $('#queue').innerHTML=S.queue.length?S.queue.map((q,i)=>`<div class="qi"><span class="dot" style="background:${q.hex}"></span>${q.secondary?`<span class="dot" style="background:${q.secondary.hex};margin-left:-10px;border:1px solid #fff4"></span>`:''}<span>${esc(q.charName)} · ${esc(q.label)} · ${q.amount??100}% FX</span><span class="x" data-i="${i}" title="Remove">✕</span></div>`).join(''):'<div class="empty">Optional. Use overrides to give one skill a different color than the rest.</div>';
+  document.querySelectorAll('.qi .x').forEach(x=>x.onclick=()=>{S.queue.splice(+x.dataset.i,1);render()});
+}
+
+/* ---------- actions ---------- */
+async function pickChar(id){
+  S.char=S.chars.find(c=>c.id==id);S.group=null;S.vari='base';S.groups=[];
+  if(!S.char.variants.length){render();return}
+  await loadGroups(S.char.variants[0].key)}
+async function loadGroups(v){
+  S.vari=v;S.group=null;busy('Extracting VFX previews…');
+  try{S.groups=await api(`/api/groups?char=${S.char.id}&var=${v}`);}catch(e){toast(e.message,true)}
+  idle();render();if(S.groups.length)pickGroup(S.groups[0].key)}
+function pickGroup(k){S.group=S.groups.find(g=>g.key==k);document.querySelectorAll('.card[data-k]').forEach(el=>el.classList.toggle('sel',el.dataset.k==k));refreshSide();
+  const q=S.queue.find(x=>x.key==gkey());if(q){Object.assign(S.color,rgb2hsv(...q.hex.slice(1).match(/../g).map(x=>parseInt(x,16))));$('#mode').value=q.mode;$('#amount').value=q.amount??100;$('#amountv').textContent=(q.amount??100)+'%';$('#int').value=q.intensity*100;$('#intv').textContent=Math.round(q.intensity*100)+'%';$('#white').checked=q.tint_white;$('#ind').checked=q.indicators;$('#two').checked=!!q.secondary;$('#secBox').style.display=q.secondary?'block':'none';if(q.secondary){$('#sechex').value=q.secondary.hex.slice(1);$('#secpick').value=q.secondary.hex;document.querySelectorAll('.part').forEach(c=>c.checked=q.secondary.parts.includes(c.value))}}
+  paintPicker();schedulePreview()}
+$('#apply').onclick=async()=>{
+  if(!S.group)return;const a=cur(),key=gkey(),charName=S.char.name,label=S.group.label+(S.vari!='base'?' ('+S.vari+')':'');
+  try{const p=(await post('/api/preview',a)).palette;
+  const item={...a,key,palette:p,charName,label};
+  const i=S.queue.findIndex(x=>x.key==item.key);i>=0?S.queue[i]=item:S.queue.push(item);
+  toast(`Override added: ${charName} · ${label} → ${a.hex}`);render()}catch(e){toast(e.message,true)}};
+const settings=()=>({hex:hex(),mode:$('#mode').value,intensity:$('#int').value/100,amount:Number($('#amount').value),tint_white:$('#white').checked,indicators:$('#ind').checked,secondary:secondary()});
+const overrides=()=>S.queue.map(({key,palette,charName,label,...r})=>r);
+$('#genAll').onclick=()=>runExport({global:settings(),exclude:[...S.excl],assignments:overrides()},'RedVFX_All');
+$('#export').onclick=()=>runExport({assignments:overrides(),exclude:[...S.excl]},'MHUR_VFX_Overrides');
+async function runExport(body,def){
+  const name=$('#modname').value.trim()||def;
+  busy('Building pak…',0);
+  try{const {job}=await post('/api/export',{name,...body});
+    const res=await waitJob(job,'Building pak…');idle();showResult(res)}catch(e){idle();toast(e.message,true)}}
+async function waitJob(id,txt){for(;;){const j=await api('/api/job?id='+id);busy(j.text||txt,j.total?j.done/j.total:0);
+  if(j.state=='done')return j.result;if(j.state=='error')throw new Error(j.error);await new Promise(r=>setTimeout(r,250))}}
+function showResult(r){
+  const miss=r.missing_count?`<div class="warn"><b>${r.missing_count} referenced material(s) are not in your library</b> so their color could not change (particle colors were still changed). Import them via “Import default game assets”.<ul>${r.missing.slice(0,6).map(x=>`<li>${x}</li>`).join('')}${r.missing_count>6?'<li>…</li>':''}</ul></div>`:'';
+  const sh=r.shared&&r.shared.length?`<div class="warn"><b>Shared materials</b> are also used by effects you did not swap, so those effects change color too:<ul>${r.shared.slice(0,6).map(x=>`<li>${x}</li>`).join('')}${r.shared.length>6?`<li>…and ${r.shared.length-6} more</li>`:''}</ul></div>`:'';
+  const limits=[r.amount_unsupported?.length?`${r.amount_unsupported.length} effects have no supported spawn settings; their amount could not be reduced.`:'',r.two_color_shared?.length?`${r.two_color_shared.length} materials are shared by main and secondary parts. They keep the main color; emitter colors use the selected split.`:'',r.secondary_requested&&!r.secondary_fields?'No matching secondary color fields were found. Try different part categories.':''].filter(Boolean);
+  const notices=limits.map(t=>`<div class="warn">${t}</div>`).join('');
+  $('#mbox').innerHTML=`<h3>✅ Mod exported</h3><div class="kv"><span>File</span><span><b>${r.file}</b></span><span>Size</span><span>${(r.size/1048576).toFixed(2)} MB</span><span>Characters</span><span>${r.characters}</span><span>Assets patched</span><span>${r.assets}</span></div>${sh}${miss}${notices}
+   <div class="steps"><b>Install:</b> copy the .pak into your game's <code>HerovsGame/Content/Paks</code> folder (create a <code>~mods</code> subfolder if you like), then start the game.</div>
+   <div class="mrow"><a class="btn main" style="text-decoration:none;text-align:center" href="${r.url}" download>SAVE .PAK</a><button class="btn sec" style="margin:0" id="openf">OPEN EXPORTS FOLDER</button><button class="btn sec" style="margin:0" id="mclose">CLOSE</button></div>`;
+  $('#modal').classList.add('open');$('#mclose').onclick=()=>$('#modal').classList.remove('open');$('#openf').onclick=()=>post('/api/open_exports',{})}
+$('#modal').onclick=e=>{if(e.target.id=='modal')$('#modal').classList.remove('open')};
+
+$('#importLink').onclick=()=>$('#importFile').click();
+$('#importPath').onclick=async()=>{const p=prompt('Full path of the folder (or .zip/.pak) that holds the extracted game files, e.g. C:\\Exports\\HerovsGame\\Content\\Character');if(!p)return;busy('Importing default assets… (this can take a while)');
+  try{const {job}=await post('/api/import_path',{path:p});const r=await waitJob(job,'Importing…');await refresh();idle();render();toast(`Imported ${r.imported} assets`)}catch(x){idle();toast(x.message,true)}};
+$('#importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;busy('Importing default assets…');
+  try{const {job}=await api('/api/import?name='+encodeURIComponent(f.name),{method:'POST',body:f});const r=await waitJob(job,'Importing…');await refresh();idle();render();toast(`Imported ${r.imported} assets`)}catch(x){idle();toast(x.message,true)}e.target.value=''};
+$('#pfile').onchange=async e=>{const f=e.target.files[0];if(!f||!S.char)return;const ext=f.name.split('.').pop();
+  try{await api(`/api/portrait?char=${S.char.id}&ext=${ext}`,{method:'POST',body:f});await refresh();S.char=S.chars.find(c=>c.id==S.char.id);render();toast('Picture updated')}catch(x){toast(x.message,true)}e.target.value=''};
+
+async function refresh(){const st=await api('/api/state');S.chars=st.characters;if(S.char)S.char=S.chars.find(c=>c.id==S.char.id)||null}
+(async function boot(){
+  await prefsReady;paintPicker();render();busy('Loading character assets…',0);
+  for(;;){const st=await api('/api/state');
+    if(st.status.state=='error'){idle();toast(st.status.text,true);return}
+    if(st.status.state=='ready'){S.chars=st.characters;S.ready=true;break}
+    busy(st.status.text||'Loading character assets…',st.status.done/st.status.total);await new Promise(r=>setTimeout(r,300))}
+  idle();render();loadGameInfo()})();
+</script>
+</body>
+</html>
