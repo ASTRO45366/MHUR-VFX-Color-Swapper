@@ -3,7 +3,8 @@ import math
 import struct
 
 
-def apply_amount(asset, buf, percent):
+def apply_amount(asset, buf, percent, include=None):
+    """Scale spawn settings; include(export_index) limits it to some emitters."""
     value = float(percent)
     if not math.isfinite(value) or not 0 <= value <= 100:
         raise ValueError('Effect amount must be between 0 and 100.')
@@ -42,6 +43,8 @@ def apply_amount(asset, buf, percent):
                             scale(v.vpos + 4 + j * 4)
 
     for i, e in enumerate(asset.exports):
+        if include is not None and not include(i):
+            continue
         if e['class'] == 'ParticleModuleSpawn':
             for p in asset.export_props(i):
                 if p.name == 'Rate' and p.sname == 'RawDistributionFloat':

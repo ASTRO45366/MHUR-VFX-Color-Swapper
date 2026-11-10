@@ -2,6 +2,7 @@
 import json
 import mimetypes
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,17 +34,44 @@ class App:
         self.last_ping = None
         self.started = time.time()
 
+    def log_error(self, context):
+        """Append the current exception to logs/errors.log (the windowed exe has no console)."""
+        details = traceback.format_exc()
+        try:
+            if sys.stderr:
+                sys.stderr.write(details)
+            folder = self.base / 'logs'
+            folder.mkdir(parents=True, exist_ok=True)
+            path = folder / 'errors.log'
+            if path.exists() and path.stat().st_size > 512 * 1024:
+                path.replace(folder / 'errors.old.log')
+            with path.open('a', encoding='utf-8') as fh:
+                fh.write(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')} {context}\n{details}\n")
+        except OSError:
+            pass
+
+    def _prune_jobs(self):
+        """Forget finished jobs after 15 minutes so a long session does not grow forever."""
+        cutoff = time.time() - 900
+        for jid, job in list(self.jobs.items()):
+            if job['state'] != 'running' and job.get('finished', time.time()) < cutoff:
+                self.jobs.pop(jid, None)
+
     def initialize(self):
         self.initializing = True
         try:
-            self.engine.load()
+            try:
+                self.engine.load()
+            except Exception:
+                self.log_error('loading the library')  # the UI shows engine.status
+                return
             prefs = self.preferences.read()
             if prefs['auto_game_update'] and prefs['game_folder']:
                 try:
                     self.refresh_game(prefs)
                 except Exception:
                     # A bad path/key/new format must not prevent using the prior library.
-                    pass
+                    self.log_error('automatic game update')
         finally:
             self.initializing = False
 
@@ -81,6 +109,7 @@ class App:
                     characters=len(manifest.get('characters', [])), changed=changed)
 
     def job(self, fn):
+        self._prune_jobs()
         jid = uuid.uuid4().hex[:8]
         self.jobs[jid] = {'state': 'running', 'done': 0, 'total': 1, 'text': ''}
 
@@ -89,8 +118,11 @@ class App:
                 self.jobs[jid]['result'] = fn(self.jobs[jid])
                 self.jobs[jid]['state'] = 'done'
             except Exception as e:
-                traceback.print_exc()
-                self.jobs[jid].update(state='error', error=str(e))
+                if not isinstance(e, (ValueError, FileNotFoundError)):
+                    self.log_error('job')
+                self.jobs[jid].update(state='error', error=str(e) or type(e).__name__)
+            finally:
+                self.jobs[jid]['finished'] = time.time()
         threading.Thread(target=run, daemon=True).start()
         return jid
 
@@ -174,14 +206,16 @@ def make_handler(app: App):
                     return self._send(200, {'status': status,
                                             'characters': eng.characters() if status['state'] == 'ready' else []})
                 if p == '/api/groups':
+                    if q.get('char') not in eng.lib.characters() or q.get('var') not in eng.lib.characters()[q['char']]:
+                        return self._send(400, {'error': 'Unknown character or variation.'})
                     return self._send(200, eng.groups(q['char'], q['var']))
                 if p == '/api/parts':
                     return self._send(200, eng.parts_info())
                 if p == '/api/job':
                     return self._send(200, app.jobs.get(q.get('id'), {'state': 'error', 'error': 'unknown job'}))
             except Exception as e:
-                traceback.print_exc()
-                return self._send(500, {'error': str(e)})
+                app.log_error(f'{self.command} {self.path}')
+                return self._send(500, {'error': (str(e) or type(e).__name__) + ' — details saved in logs/errors.log'})
             self._send(404, {'error': 'not found'})
 
         def do_POST(self):
@@ -202,7 +236,7 @@ def make_handler(app: App):
                     app.preferences.update(prefs)
                     return self._send(200, {'job': app.job(lambda job: app.refresh_game(prefs, job, bool(req.get('force'))))})
                 if p == '/api/preview':
-                    return self._send(200, {'palette': eng.preview(json.loads(data))})
+                    return self._send(200, eng.preview_info(json.loads(data)))
                 if p == '/api/export':
                     req = json.loads(data)
 
@@ -251,6 +285,9 @@ def make_handler(app: App):
                     return self._send(200, {'url': eng.portrait_url(cid)})
                 if p == '/api/rename':
                     req = json.loads(data)
+                    if not isinstance(req.get('char'), str) or not re.fullmatch(r'Ch\d+', req['char']) \
+                            or not isinstance(req.get('name'), str):
+                        raise ValueError('Invalid character name.')
                     eng.names[req['char']] = req['name'].strip()[:40]
                     (app.base / 'characters.json').write_text(json.dumps(eng.names, indent=2), encoding='utf-8')
                     return self._send(200, {'ok': True})
@@ -266,8 +303,8 @@ def make_handler(app: App):
             except (ValueError, KeyError, TypeError) as e:
                 return self._send(400, {'error': str(e)})
             except Exception as e:
-                traceback.print_exc()
-                return self._send(500, {'error': str(e)})
+                app.log_error(f'{self.command} {self.path}')
+                return self._send(500, {'error': (str(e) or type(e).__name__) + ' — details saved in logs/errors.log'})
             self._send(404, {'error': 'not found'})
 
     return H

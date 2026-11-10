@@ -26,6 +26,7 @@ def emitter_parts(asset, classify):
         for idx in array_indices(levels):
             if idx <= 0:
                 continue
+            modules.setdefault(idx - 1, set())  # the LOD level itself (bEnabled)
             lp = {p.name: p for p in asset.export_props(idx - 1)}
             required = lp.get('RequiredModule')
             matpath = None
@@ -38,6 +39,7 @@ def emitter_parts(asset, classify):
                 part = classify(matpath.rsplit('/', 1)[-1])
             if matpath:
                 materials.setdefault(matpath, set()).add(part)
+            modules[idx - 1].add(part)
             indices = list(array_indices(lp['Modules'])) if 'Modules' in lp else []
             for key in ('RequiredModule', 'SpawnModule', 'TypeDataModule'):
                 if key in lp:

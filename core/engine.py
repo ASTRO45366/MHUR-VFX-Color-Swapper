@@ -28,13 +28,14 @@ DEFAULT_NAMES = {
     'Ch203': 'Shoto Todoroki (Phosphor)', 'Ch204': 'Toya Todoroki',
 }
 MOUNT = '../../../HerovsGame/Content/'
+DEFAULT_SPREAD = 60
 
 PARTS = [
-    ('trail', 'Trails & tails', re.compile(r'trail|tail|ribbon|streak', re.I)),
-    ('smoke', 'Smoke, dust & debris', re.compile(r'smoke|debri|dust|steam|cloud|vapor', re.I)),
-    ('impact', 'Hit & impact', re.compile(r'hit|impact|burst|explo|envhit|ground|slash', re.I)),
-    ('aura', 'Body, aura & hand', re.compile(r'body|aura|hand|charge|aim', re.I)),
-    ('light', 'Point lights', re.compile(r'light$|_light', re.I)),
+    ('trail', 'Trails & tails', frozenset({'trail', 'trails', 'tail', 'tails', 'ribbon', 'streak'})),
+    ('smoke', 'Smoke, dust & debris', frozenset({'smoke', 'debri', 'debris', 'dust', 'steam', 'cloud', 'vapor'})),
+    ('impact', 'Hit & impact', frozenset({'hit', 'impact', 'burst', 'explo', 'explosion', 'envhit', 'ground', 'slash'})),
+    ('aura', 'Body, aura & hand', frozenset({'body', 'aura', 'hand', 'charge', 'aim'})),
+    ('light', 'Point lights', frozenset({'light'})),
 ]
 PART_LABEL = {k: v for k, v, _ in PARTS}
 
@@ -47,16 +48,35 @@ def synchronized(fn):
     return run
 
 
+MAX_LEVEL = 3
+LEVEL_RE = re.compile(r'(?:^|_)L(\d)(?=_|$)')
+
+
+def level_steps(name):
+    """How many skill levels below the maximum an effect/material is (None = no level in name)."""
+    m = LEVEL_RE.search(name)
+    return max(0, MAX_LEVEL - int(m.group(1))) if m else None
+
+
+def _tokens(name):
+    """Lower-case words of an asset/emitter name (splits _, digits and camelCase)."""
+    words = re.findall(r'[A-Z]+(?![a-z])|[A-Z]?[a-z]+', re.sub(r'\d+', ' ', name.replace('_', ' ')))
+    return [w.lower() for w in words]
+
+
 def part_of(name):
-    """Which visual part an effect/material name belongs to ('main' = bullet/core)."""
+    """Which visual part an effect/material name belongs to ('main' = bullet/core).
+
+    Whole words only, so 'White' is not 'hit' and 'Lightning' is not a light.
+    """
     n = re.sub(r'^(PS|MI|MII|M)_(ef_)?Ch\d+(V\d+)?_?', '', name)
-    if PARTS[4][2].search(n):
+    words = set(_tokens(n))
+    if _tokens(n)[-1:] == ['light'] or 'light' in words and 'lightning' not in words:
         return 'light'
-    for key, _, rx in PARTS[:4]:
-        if rx.search(n):
+    for key, _, vocab in PARTS[:4]:
+        if words & vocab:
             return key
     return 'main'
-
 
 
 class Engine:
@@ -218,9 +238,13 @@ class Engine:
                                        bool(a.get('indicators', False)))
         parts = set((a.get('secondary') or {}).get('parts') or [])
         material_users = {}
+        material_steps = {}
         selected = []
         for r in ps:
             asset = self.lib.read(r)
+            steps = level_steps(r.name) or 0
+            for path in r.refs:
+                material_steps.setdefault(path, set()).add(steps)
             module_parts, uses = emitter_parts(asset, part_of) if parts else ({}, {})
             default = part_of(r.name)
             for path in r.refs:
@@ -231,6 +255,7 @@ class Engine:
                 roles = {default if p == 'main' else p
                          for p in module_parts.get(f.export_index, {default})}
                 f.secondary = bool(roles) and roles <= parts
+                f.steps = steps
             selected.append((r, asset, fs))
         # Propagate roles through parent materials. Shared primary/secondary
         # materials remain primary; per-emitter particle colors still split.
@@ -243,7 +268,10 @@ class Engine:
                 old = material_users.setdefault(parent, set())
                 before = len(old)
                 old.update(material_users[path])
-                if len(old) != before:
+                lv = material_steps.setdefault(parent, set())
+                nlv = len(lv)
+                lv.update(material_steps.get(path, ()))
+                if len(old) != before or len(lv) != nlv:
                     stack.append(parent)
         conflicts = []
         for r in mats:
@@ -255,8 +283,12 @@ class Engine:
             own_part = part_of(r.name)
             secondary = not (roles - parts) and (own_part in parts if own_part != 'main'
                          else bool(roles) and roles <= parts)
+            own = level_steps(r.name)
+            users = material_steps.get(r.pkg) or {0}
+            steps = own if own is not None else (next(iter(users)) if len(users) == 1 else 0)
             for f in fs:
                 f.secondary = secondary
+                f.steps = steps
             selected.append((r, asset, fs))
         return selected, conflicts
 
@@ -283,10 +315,41 @@ class Engine:
                   reference(ent_s), float(a.get('intensity', 1.0)), True) if sec else None
         return sp, ss
 
+    @staticmethod
+    def amounts(a):
+        """(main amount, second-colour amount); the second follows the main one unless set."""
+        main = float(a.get('amount', 100))
+        sec = a.get('secondary')
+        return main, (float(sec.get('amount', main)) if sec else main)
+
+    def _apply_amounts(self, a, r, asset, buf):
+        """Patch spawn amounts. None = nothing requested; else number of values changed."""
+        main, second = self.amounts(a)
+        if main == 100 and second == 100:
+            return None
+        if main == second:
+            return apply_amount(asset, buf, main)
+        parts = set(a['secondary'].get('parts') or [])
+        module_parts, _ = emitter_parts(asset, part_of)
+        default = part_of(r.name)
+
+        def is_second(i):
+            roles = {default if p == 'main' else p for p in module_parts.get(i, {default})}
+            return bool(roles) and roles <= parts
+        changed = (apply_amount(asset, buf, main, lambda i: not is_second(i))
+                   + apply_amount(asset, buf, second, is_second))
+        return changed or None  # nothing to scale in the targeted emitters is not an error
+
+    @staticmethod
+    def field_swap(a, f, sp, ss):
+        fn = ss if f.secondary and ss else sp
+        return fn.variant(getattr(f, 'steps', 0), float(a.get('level_spread', DEFAULT_SPREAD)) / 100.0)
+
     @synchronized
-    def preview(self, a):
+    def preview_info(self, a):
+        """Palette (exact max-level colours) plus how the fields split between the colours."""
         self.validate_assignment(a)
-        selected, _ = self._selection(a)
+        selected, conflicts = self._selection(a)
         ent_p, ent_s = self._selected_entries(selected)
         sp, ss = self._swaps(a, ent_p, ent_s)
         result = []
@@ -294,7 +357,20 @@ class Engine:
             if ent and fn:
                 _, colors = self._palette(ent, [fn(c) for c, _ in ent])
                 result.extend(c for c in colors if c not in result)
-        return result[:10]
+        # Aligned before/after swatches: same colour buckets, original vs. new (max level).
+        ent_all = list(ent_p or []) + list(ent_s or [])
+        keys, before = self._palette(ent_all)
+        after_colors = ([sp(c) for c, _ in ent_p or []] if sp else [c for c, _ in ent_p or []]) + \
+            ([ss(c) for c, _ in ent_s or []] if ss else [c for c, _ in ent_s or []])
+        _, after = self._palette(ent_all, after_colors, keys) if ent_all else (None, [])
+        fields = [f for _, _, fs in selected for f in fs]
+        return {'palette': result[:10], 'before': before, 'after': after, 'main_fields': sum(not f.secondary for f in fields),
+                'second_fields': sum(bool(f.secondary) for f in fields),
+                'shared_materials': len(conflicts),
+                'second_dark': bool(ss and ss.tv < 0.2)}
+
+    def preview(self, a):
+        return self.preview_info(a)['palette']
 
     @staticmethod
     def _swap(a, ent):
@@ -311,7 +387,7 @@ class Engine:
             raise ValueError('Choose a valid six-digit color.')
         if a.get('mode', 'shift') not in ('shift', 'unify', 'original'):
             raise ValueError('Unknown color mode.')
-        for key, default, maximum in (('amount', 100, 100), ('intensity', 1, 2.5)):
+        for key, default, maximum in (('amount', 100, 100), ('intensity', 1, 2.5), ('level_spread', DEFAULT_SPREAD, 100)):
             value = float(a.get(key, default))
             if not math.isfinite(value) or not 0 <= value <= maximum:
                 raise ValueError(f'{key} must be between 0 and {maximum}.')
@@ -327,6 +403,9 @@ class Engine:
                 raise ValueError('Choose a valid secondary color.')
             if not isinstance(sec.get('parts'), list) or not set(sec['parts']) <= set(PART_LABEL):
                 raise ValueError('Invalid secondary part categories.')
+            value = float(sec.get('amount', a.get('amount', 100)))
+            if not math.isfinite(value) or not 0 <= value <= 100:
+                raise ValueError('amount must be between 0 and 100.')
 
     # ------------------------------------------------------------ export
     @synchronized
@@ -360,16 +439,16 @@ class Engine:
             mats = [r for r, _, _ in selected if r.kind != 'ps']
             sp, ss = self._swaps(a, *self._selected_entries(selected))
             for r, asset, fields in selected:
-                buf = bytearray(asset.ux)
+                # continue from an earlier assignment's patch of the same asset
+                buf = bytearray(patched[r.pkg][2]) if r.pkg in patched else bytearray(asset.ux)
                 for f in fields:
-                    fn = ss if f.secondary and ss else sp
-                    f.apply(buf, fn)
+                    f.apply(buf, self.field_swap(a, f, sp, ss))
                     report['secondary_fields'] += int(f.secondary)
-                amount = float(a.get('amount', 100))
-                if r.kind == 'ps' and amount != 100:
-                    if apply_amount(asset, buf, amount):
+                if r.kind == 'ps':
+                    done = self._apply_amounts(a, r, asset, buf)
+                    if done:
                         report['amount_assets'] += 1
-                    else:
+                    elif done is not None:
                         report['amount_unsupported'].append(r.name)
                 if buf != asset.ux:
                     patched[r.pkg] = (r, asset.ua, bytes(buf))

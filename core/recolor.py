@@ -81,6 +81,27 @@ class Swap:
         if ref and ref[1] > 1e-3:
             self.k = max(0.0, min(4.0, self.ts / ref[1]))
 
+    def variant(self, steps, strength):
+        """Slightly different colour for a lower skill level (steps below max).
+
+        Max level (steps=0) is the exact picked colour; every step below shifts the
+        hue a few degrees and takes a little saturation and brightness away.
+        """
+        if steps <= 0 or strength <= 0 or self.mode == 'original':
+            return self
+        key = (steps, round(strength, 4))
+        cache = self.__dict__.setdefault('_variants', {})
+        if key not in cache:
+            v = Swap.__new__(Swap)
+            v.__dict__.update(self.__dict__)
+            v._variants = {}
+            d = steps * strength
+            v.th = (self.th + 0.02 * d) % 1.0
+            v.ts = max(0.0, self.ts * (1 - 0.12 * d))
+            v.tv = max(0.0, self.tv * (1 - 0.10 * d))
+            cache[key] = v
+        return cache[key]
+
     def __call__(self, rgb):
         if self.mode == 'original':
             return tuple(c * self.intensity for c in rgb)
@@ -96,11 +117,12 @@ class Swap:
                 nh = self.th
             else:
                 nh = (h + (self.th - self.ref[0])) % 1.0
-            ns = max(0.0, min(1.0, s * self.k))
-            if not self.ref:
-                ns = self.ts
+            if self.mode == 'unify' or not self.ref:
+                ns = self.ts  # full strength: exactly the picked saturation
+            else:
+                ns = max(0.0, min(1.0, s * self.k))
         r, g, b = colorsys.hsv_to_rgb(nh, ns, 1.0)
-        f = m * self.tv * self.intensity
+        f = m * s2l(self.tv) * self.intensity  # tv is gamma-encoded; scale in linear light
         return (s2l(r) * f, s2l(g) * f, s2l(b) * f)
 
 

@@ -117,7 +117,7 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
 .meta .s{color:var(--mut);font-size:11.5px;margin-top:6px}
 .swatches{position:absolute;left:0;right:0;bottom:0;height:9px;display:flex}
 .swatches i{flex:1}
-.badge{position:absolute;top:10px;right:10px;background:#0009;border:1px solid #fff3;font-size:10.5px;padding:3px 8px;border-radius:99px;display:flex;gap:6px;align-items:center}
+.badge{position:absolute;top:10px;right:10px;background:#0009;color:#fff;border:1px solid #fff3;font-size:10.5px;padding:3px 8px;border-radius:99px;display:flex;gap:6px;align-items:center}
 .badge b{width:9px;height:9px;border-radius:50%;display:inline-block}
 .vfxhead{display:flex;flex-direction:column;align-items:center;margin:6px 0 22px}
 .vfxhead .n{font-size:30px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
@@ -130,7 +130,7 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
 .bar{width:260px;height:6px;background:var(--surface);border-radius:9px;margin:12px auto 0;overflow:hidden}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));width:0;transition:width .2s}
 .msg{color:var(--mut);text-align:center;padding:60px 0;font-size:16px}
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#1b1f2c;border:1px solid var(--line2);padding:12px 18px;border-radius:12px;z-index:60;box-shadow:0 12px 40px #000b;max-width:70vw}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel);color:var(--txt);border:1px solid var(--line2);padding:12px 18px;border-radius:12px;z-index:60;box-shadow:0 12px 40px #000b;max-width:70vw}
 .toast.err{border-color:var(--bad)}
 .modal{position:fixed;inset:0;background:var(--modal-overlay);display:none;place-items:center;z-index:50}
 .modal.open{display:grid}
@@ -143,8 +143,77 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
 .steps{color:var(--txt);font-size:13px;line-height:1.6;margin-top:12px}
 .steps code{background:var(--input);padding:1px 6px;border-radius:5px;font-size:12px}
 .mrow{display:flex;gap:10px;margin-top:18px}
-.mrow .btn{padding:13px}
+.mrow .btn{padding:10px 12px;flex:1;display:flex;align-items:center;justify-content:center;text-align:center;min-height:48px;margin:0;font-size:12px;letter-spacing:.9px;line-height:1.2}
 
+/* ---------- v2.3 layout ---------- */
+.sec{border:1px solid var(--line);border-radius:var(--r);background:color-mix(in srgb,var(--card) 55%,transparent);margin-top:12px;padding:0 12px 12px}
+.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 0 10px;font-size:12px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--txt);user-select:none}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary::after{content:"";margin-left:8px;width:7px;height:7px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(45deg) translateY(-2px);transition:transform .15s}
+.sec:not([open])>summary::after{transform:rotate(-45deg)}
+.sec:not([open]){padding-bottom:0}
+.sec>summary:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
+.num{width:20px;height:20px;border-radius:7px;display:grid;place-items:center;font-size:11px;background:var(--surface);color:var(--mut);flex:none}
+.sec[open] .num{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff}
+.sumv{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;color:var(--mut);font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dotv{display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid #fff4;vertical-align:-2px}
+.count{margin-left:auto;background:var(--acc);color:#fff;border-radius:99px;font-size:11px;padding:1px 8px;letter-spacing:0}
+.presets{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-top:10px}
+.presets button{aspect-ratio:1;border-radius:7px;border:1px solid #fff2;cursor:pointer;padding:0;transition:transform .1s}
+.presets button:hover{transform:scale(1.12)}
+.presets button.on{outline:2px solid var(--txt);outline-offset:1px}
+.presets.recent:empty{display:none}
+.presets.recent::before{content:"Recent";grid-column:1/-1;font-size:10.5px;color:var(--mut);margin-bottom:-2px}
+.compare{margin-top:10px;display:grid;gap:6px}
+.crow{display:grid;grid-template-columns:44px 1fr;align-items:center;gap:8px;font-size:11px;color:var(--mut)}
+.crow .prevbar{margin:0;height:22px;border-radius:7px}
+.prevbar:empty{background:repeating-linear-gradient(45deg,var(--surface) 0 6px,var(--card) 6px 12px)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--input);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:8px;padding:8px 4px;font-size:12.5px;font-weight:600;color:var(--mut);cursor:pointer}
+.seg button:hover{color:var(--txt)}
+.seg button[aria-checked=true]{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;box-shadow:0 2px 10px #0004}
+.slider output{color:var(--txt);font-variant-numeric:tabular-nums;font-weight:600}
+.hint2{display:block;color:var(--mut);font-size:11px;line-height:1.4;margin-top:2px}
+.sw2 input{appearance:none;-webkit-appearance:none;width:32px;height:18px;border-radius:99px;background:var(--line2);position:relative;flex:none;cursor:pointer;margin:1px 0 0;transition:background .15s}
+.sw2 input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
+.sw2 input:checked{background:var(--acc)}.sw2 input:checked::after{left:16px}
+.sw2 input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.subl{font-size:11px;color:var(--mut);margin:12px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--input);border-radius:99px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--mut)}
+.chips label:has(input:checked){border-color:var(--acc);color:var(--txt);background:var(--selected)}
+.chips input{margin:0;accent-color:var(--acc)}
+.info{font-size:11.5px;color:var(--mut);margin-top:10px;line-height:1.5}.info:empty{display:none}
+.info .w{display:block;color:var(--warn);margin-top:4px}
+#secpick{width:30px;height:30px;border:0;background:none;padding:0;cursor:pointer}
+.links{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-top:8px}
+.link{background:none;border:0;padding:2px 0}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.btnrow .btn.sec{margin:0;padding:11px 6px;font-size:11.5px;letter-spacing:.8px}
+.actions .modname{margin:0 0 10px}
+.btn:focus-visible,.card:focus-visible,.pill:focus-visible,.selbtn:focus-visible,.ib:focus-visible,.back:focus-visible,#sv:focus-visible,#hue:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.qi{animation:pop .25s both}.qi .lab{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qi .x{background:none;border:0;font-size:13px}
+.crumb{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mut)}
+.crumb b{color:var(--txt)}
+#toasts{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;z-index:60;pointer-events:none}
+#toasts .toast{position:static;transform:none;display:flex;gap:10px;align-items:center;animation:pop .2s both;pointer-events:auto}
+.toast::before{content:"✓";color:var(--ok);font-weight:900}.toast.err::before{content:"!";color:var(--bad)}
+.menu{display:none;width:34px;height:34px;border-radius:10px;border:1px solid var(--line2);background:var(--card);cursor:pointer;font-size:16px}
+.scrim{display:none}
+.ask label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
+.ask input{width:100%;background:var(--input);border:1px solid var(--line2);border-radius:10px;padding:11px 12px;outline:none}
+.ask input:focus{border-color:var(--acc)}
+@media(max-width:900px){
+ #app{grid-template-columns:1fr}
+ aside{position:fixed;z-index:40;top:0;bottom:0;left:0;width:min(340px,88vw);transform:translateX(-102%);transition:transform .2s;box-shadow:20px 0 60px #000a}
+ body.drawer aside{transform:none}
+ body.drawer .scrim{display:block;position:fixed;inset:0;background:var(--modal-overlay);z-index:39}
+ .menu{display:grid;place-items:center}
+ .top .menu{flex:none}
+ .top .hint{display:none}
+ .search{width:auto;flex:1;min-width:0}
+}
 /* All themes are local CSS: no images, web fonts or extra runtime. */
 :root[data-theme="amoled"]{--bg:#000;--panel:#080808;--panel-strong:#050505;--card:#111;--card2:#191919;--input:#050505;--surface:#151515;--line:#292929;--line2:#484848;--txt:#f5f5f5;--mut:#a3a3a3;--acc:#b9a5ff;--acc2:#dbbaff;--selected:#272035}
 :root[data-theme="ocean"]{--bg:#05131e;--panel:#0a1c2a;--panel-strong:#071722;--card:#102b3d;--card2:#17384b;--input:#071925;--surface:#123449;--line:#24475c;--line2:#38677c;--txt:#e7f6ff;--mut:#97bdcf;--acc:#42bce8;--acc2:#4987e7;--selected:#16435d}
@@ -164,7 +233,7 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
 :root[data-compact="true"] #sv{height:100px}:root[data-compact="true"] .art{aspect-ratio:4/2.3}:root[data-compact="true"] .btn{padding:10px}:root[data-compact="true"] .meta{padding:9px 12px}:root[data-compact="true"] .grid{gap:12px}
 :root[data-motion="reduced"] *, :root[data-motion="reduced"] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-@media(max-width:850px){#app{grid-template-columns:290px 1fr}.top{padding:16px}.scroll{padding:8px 16px 24px}.grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}.search{width:180px}.top .hint{font-size:12px}}
+@media(max-width:850px){.top{padding:16px}.scroll{padding:8px 16px 24px}.grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}.search{width:180px}.top .hint{font-size:12px}}
 
 .character-portrait{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 0%;position:absolute;filter:drop-shadow(0 6px 10px #0006)}
 .card.character .art{display:block}.portrait-placeholder{height:100%;display:grid;place-items:center;color:#fff9;font-size:13px}
@@ -178,70 +247,101 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
 <div id="app">
   <aside>
     <div class="side-scroll">
-      <div class="brand"><div class="logo"></div><h1>VFX Color Swapper</h1><button class="settings-toggle" id="settingsOpen" aria-label="App settings" title="App settings">⚙</button></div>
-      <div class="sub">Change character VFX colors and preview available effects.</div>
+      <div class="brand"><button class="menu" id="menuBtn" aria-label="Close controls" title="Close">✕</button><div class="logo"></div><h1>VFX Color Swapper</h1><button class="settings-toggle" id="settingsOpen" aria-label="App settings" title="App settings">⚙</button></div>
+      <div class="sub">Recolor every character's skill effects and export one .pak.</div>
 
-      <div class="lbl">Select Character</div>
+      <details class="sec" open data-sec="char"><summary><span class="num">1</span>Character<span class="sumv" id="sumChar"></span></summary>
       <div class="sel" id="charSel">
-        <button class="selbtn big" id="charBtn"><div class="thumb" id="charThumb"></div><div class="t" id="charTxt">Choose a character…</div><span class="chev">▾</span></button>
-        <div class="pop" id="charPop"><input id="charQ" placeholder="Search name or ID…" autocomplete="off"><div class="list" id="charList"></div></div>
+        <button class="selbtn big" id="charBtn" aria-haspopup="listbox"><div class="thumb" id="charThumb"></div><div class="t" id="charTxt">Choose a character…</div><span class="chev">▾</span></button>
+        <div class="pop" id="charPop"><input id="charQ" placeholder="Search name or ID…" autocomplete="off" aria-label="Search characters"><div class="list" id="charList" role="listbox"></div></div>
       </div>
       <div class="pill-row" id="varRow"></div>
+      </details>
 
-      <div class="lbl">Select VFX / Effect</div>
+      <details class="sec" open data-sec="fx"><summary><span class="num">2</span>Effect<span class="sumv" id="sumFx"></span></summary>
       <div class="sel" id="vfxSel">
-        <button class="selbtn" id="vfxBtn" disabled><div class="t" id="vfxTxt">Select a character first</div><span class="chev">▾</span></button>
-        <div class="pop" id="vfxPop"><div class="list" id="vfxList"></div></div>
+        <button class="selbtn" id="vfxBtn" disabled aria-haspopup="listbox"><div class="t" id="vfxTxt">Select a character first</div><span class="chev">▾</span></button>
+        <div class="pop" id="vfxPop"><div class="list" id="vfxList" role="listbox"></div></div>
       </div>
+      </details>
 
-      <div class="lbl">Color</div>
+      <details class="sec" open data-sec="color"><summary><span class="num">3</span>Color<span class="sumv"><i class="dotv" id="sumColor"></i></span></summary>
       <div class="picker">
-        <div id="sv"><div id="svk"></div></div>
-        <div id="hue"><div id="huek"></div></div>
+        <div id="sv" tabindex="0" role="slider" aria-label="Saturation and brightness" title="Arrow keys adjust saturation / brightness"><div id="svk"></div></div>
+        <div id="hue" tabindex="0" role="slider" aria-label="Hue" title="Arrow keys adjust hue"><div id="huek"></div></div>
         <div class="hexrow">
           <div class="sw" id="sw"></div><span style="color:var(--mut)">#</span>
-          <input id="hex" maxlength="7" spellcheck="false">
-          <button class="ib" id="copy" title="Copy hex">⧉</button>
-          <button class="ib" id="eye" title="Pick from screen" style="display:none">✎</button>
+          <input id="hex" maxlength="7" spellcheck="false" aria-label="Hex color">
+          <button class="ib" id="copy" title="Copy hex" aria-label="Copy hex">⧉</button>
+          <button class="ib" id="eye" title="Pick from screen" aria-label="Pick from screen" style="display:none">✎</button>
         </div>
         <div class="rgb">
-          <div><label>R</label><input id="r" type="number" min="0" max="255"></div>
-          <div><label>G</label><input id="g" type="number" min="0" max="255"></div>
-          <div><label>B</label><input id="b" type="number" min="0" max="255"></div>
+          <div><label for="r">R</label><input id="r" type="number" min="0" max="255"></div>
+          <div><label for="g">G</label><input id="g" type="number" min="0" max="255"></div>
+          <div><label for="b">B</label><input id="b" type="number" min="0" max="255"></div>
         </div>
-        <div class="slider"><div class="row"><span>Brightness / intensity</span><span id="intv">100%</span></div>
-          <input type="range" id="int" min="20" max="250" value="100"></div>
-        <div class="slider"><div class="row"><span>Effect amount</span><span id="amountv">100%</span></div>
-          <input type="range" id="amount" min="0" max="100" value="100" step="1" aria-label="Effect amount">
-          <small style="color:var(--mut)">100 = default particle amount · 0 = stop supported particle spawns.<br>Palette preview only; test appearance in-game.</small></div>
-        <select class="mode" id="mode">
-          <option value="original">Keep original colors (amount only)</option>
-          <option value="shift" selected>Shift hue (keeps color variety)</option>
-          <option value="unify">Unify (everything becomes this hue)</option>
-        </select>
-        <label class="chk"><input type="checkbox" id="white"><span>Tint white cores too<small>Off keeps white/grey highlights white</small></span></label>
-        <label class="chk"><input type="checkbox" id="ind"><span>Include enemy/friend area indicators<small>Off keeps danger warnings readable</small></span></label>
-        <label class="chk"><input type="checkbox" id="two"><span>Two-color mode<small>Split by effect, emitter and material names</small></span></label>
-        <div id="secBox" style="display:none">
-          <div class="hexrow"><input type="color" id="secpick" value="#000000" style="width:30px;height:30px;border:0;background:none;padding:0;cursor:pointer">
-            <span style="color:var(--mut)">#</span><input id="sechex" maxlength="7" value="000000" spellcheck="false">
-            <button class="ib" data-sw="000000" title="Black" style="background:#000"></button><button class="ib" data-sw="FFFFFF" title="White" style="background:#fff"></button></div>
-          <div style="font-size:11px;color:var(--mut);margin:10px 0 2px">Second color applies to:</div>
-          <div id="partList"></div>
-        </div>
-        <div class="prevbar" id="prev" title="Live preview of the effect palette"></div>
+        <div class="presets" id="presets" aria-label="Preset colors"></div>
+        <div class="presets recent" id="recent" aria-label="Recent colors"></div>
       </div>
+      <div class="compare" id="compare" title="Palette at max level: original on top, your result below">
+        <div class="crow"><span>Before</span><div class="prevbar" id="before"></div></div>
+        <div class="crow"><span>After</span><div class="prevbar" id="prev"></div></div>
+      </div>
+      </details>
 
-      <div class="lbl">Overrides (applied after the all-characters color)</div>
+      <details class="sec" open data-sec="style"><summary><span class="num">4</span>Style</summary>
+        <div class="seg" id="modeSeg" role="radiogroup" aria-label="Color mode">
+          <button type="button" data-m="unify" role="radio" title="Every colored part becomes your color">Exact</button>
+          <button type="button" data-m="shift" role="radio" title="Rotate hues; keeps the effect's color variety">Shift hue</button>
+          <button type="button" data-m="original" role="radio" title="Keep original colors; change only brightness / amount">Original</button>
+        </div>
+        <select class="mode" id="mode" hidden>
+          <option value="original">Keep original colors (amount only)</option>
+          <option value="unify" selected>Exact color (all one color)</option>
+          <option value="shift">Shift hue (keeps color variety)</option>
+        </select>
+        <div class="slider"><div class="row"><span>Brightness</span><output id="intv">100%</output></div>
+          <input type="range" id="int" min="20" max="250" value="100" aria-label="Brightness"></div>
+        <div class="slider"><div class="row"><span title="Level 3 (level 9 in game) always gets exactly your color">Lower-level difference</span><output id="lvlv">60%</output></div>
+          <input type="range" id="lvl" min="0" max="100" value="60" step="5" aria-label="Lower level difference">
+          <small class="hint2">Max level gets your exact color; levels 1–2 get a slightly different shade.</small></div>
+        <label class="chk sw2"><input type="checkbox" id="white" checked><span>Tint white cores<small>Off keeps white highlights white</small></span></label>
+        <label class="chk sw2"><input type="checkbox" id="ind"><span>Recolor area indicators<small>Off keeps enemy/friend warnings readable</small></span></label>
+      </details>
+
+      <details class="sec" open data-sec="amount"><summary><span class="num">5</span>Particles<span class="sumv" id="sumAmt"></span></summary>
+        <div class="slider"><div class="row"><span id="amountLbl">Effect amount</span><output id="amountv">100%</output></div>
+          <input type="range" id="amount" min="0" max="100" value="100" step="1" aria-label="Effect amount">
+          <small class="hint2">100% = default · 0% = no particles where supported.</small></div>
+      </details>
+
+      <details class="sec" open data-sec="two"><summary><span class="num">6</span>Two colors<span class="sumv"><i class="dotv" id="sumSec" hidden></i></span></summary>
+        <label class="chk sw2"><input type="checkbox" id="two"><span>Use a second color<small>For trails, smoke, hits… chosen below</small></span></label>
+        <div id="secBox" style="display:none">
+          <div class="hexrow"><input type="color" id="secpick" value="#000000" aria-label="Second color">
+            <span style="color:var(--mut)">#</span><input id="sechex" maxlength="7" value="000000" spellcheck="false" aria-label="Second color hex">
+            <button class="ib" data-sw="000000" title="Black" aria-label="Black" style="background:#000"></button><button class="ib" data-sw="FFFFFF" title="White" aria-label="White" style="background:#fff"></button></div>
+          <div class="slider"><div class="row"><span>Second color amount</span><output id="amount2v">100%</output></div>
+            <input type="range" id="amount2" min="0" max="100" value="100" step="1" aria-label="Second color effect amount"></div>
+          <div class="subl">Second color applies to</div>
+          <div id="partList" class="chips"></div>
+        </div>
+        <div id="prevInfo" class="info"></div>
+      </details>
+
+      <details class="sec" open data-sec="queue"><summary><span class="num">7</span>Overrides<span class="count" id="qCount" hidden></span></summary>
       <div class="queue" id="queue"></div>
-      <span class="link" id="importLink">Import default assets from a file (.zip / .pak)…</span><br><span class="link" id="importPath">Import a whole extracted folder (all characters)…</span>
+      <div class="links"><button type="button" class="link" id="importLink">Import assets from .zip / .pak…</button><button type="button" class="link" id="importPath">Import an extracted folder…</button></div>
       <input type="file" id="importFile" accept=".zip,.pak" style="display:none">
+      </details>
     </div>
     <div class="actions">
-      <button class="btn main" id="genAll" disabled>GENERATE PAK — ALL CHARACTERS</button>
-      <input class="modname" id="modname" placeholder="Pak name (e.g. RedVFX_All)">
-      <button class="btn sec" id="apply" disabled>ADD SELECTED EFFECT AS OVERRIDE</button>
-      <button class="btn sec" id="export" style="margin-top:8px" disabled>EXPORT OVERRIDES ONLY</button>
+      <input class="modname" id="modname" placeholder="Pak name (e.g. RedVFX_All)" aria-label="Pak name" maxlength="60">
+      <button class="btn main" id="genAll" disabled title="Your color for every character, plus the overrides below">GENERATE PAK — ALL CHARACTERS</button>
+      <div class="btnrow">
+        <button class="btn sec" id="apply" disabled title="Give the selected effect its own color in the pak">＋ ADD OVERRIDE</button>
+        <button class="btn sec" id="export" disabled title="A pak with only your overrides">OVERRIDES ONLY</button>
+      </div>
     </div>
   </aside>
 
@@ -252,7 +352,9 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
   </main>
 </div>
 
-<div class="modal" id="modal"><div class="mbox" id="mbox"></div></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true"><div class="mbox" id="mbox"></div></div>
+<div id="toasts" aria-live="polite"></div>
+<div class="scrim" id="scrim"></div>
 <input type="file" id="pfile" accept="image/png,image/jpeg,image/webp" style="display:none">
 
 
@@ -284,7 +386,7 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
  <p id="gameUpdateInfo" role="status">Loading game update information…</p>
  <p>If a future patch changes the archive format or key, the previous working roster is kept.</p>
  </section>
- <p>Version 2.2 · Public edition</p>
+ <p>Version 2.3 · Public edition</p>
 </dialog>
 
 <script>
@@ -334,7 +436,16 @@ $('#updateGame').onclick=async()=>{
 };
 
 
-function toast(t,err){const d=document.createElement('div');d.className='toast'+(err?' err':'');d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),4200)}
+function toast(t,err){const box=$('#toasts'),d=document.createElement('div');d.className='toast'+(err?' err':'');d.textContent=t;box.appendChild(d);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>d.remove(),err?6500:3800)}
+const store={get(k,d){try{const v=localStorage.getItem('mhurvfx.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('mhurvfx.'+k,JSON.stringify(v))}catch(e){}}};
+/* in-app text prompt (replaces window.prompt) */
+function ask(title,label,value='',placeholder=''){return new Promise(done=>{
+  $('#mbox').innerHTML=`<form class="ask"><h3>${esc(title)}</h3><label for="askIn">${esc(label)}</label><input id="askIn" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false"><div class="mrow"><button class="btn main" type="submit">OK</button><button class="btn sec" type="button" id="askNo" style="margin:0">CANCEL</button></div></form>`;
+  const prev=document.activeElement,close=v=>{$('#modal').classList.remove('open');modalClose=null;$('#mbox').innerHTML='';prev?.focus?.();done(v)};modalClose=()=>close(null);
+  $('#modal').classList.add('open');const i=$('#askIn');i.focus();i.select();
+  $('#mbox form').onsubmit=e=>{e.preventDefault();close(i.value.trim()||null)};$('#askNo').onclick=()=>close(null)})}
+let modalClose=null;
+function closeModal(){if(modalClose)modalClose();else{$('#modal').classList.remove('open');document.activeElement?.blur?.()}}
 function busy(txt,p){$('#loading').style.display='grid';$('#ltxt').textContent=txt;$('#lbar').style.width=(p==null?0:p*100)+'%'}
 function idle(){$('#loading').style.display='none'}
 setInterval(()=>fetch('/api/ping').catch(()=>{}),4000);fetch('/api/ping');
@@ -352,6 +463,15 @@ function drag(el,fn){let on=false;const f=e=>{const r=el.getBoundingClientRect()
   el.addEventListener('pointermove',e=>on&&f(e));el.addEventListener('pointerup',()=>on=false)}
 drag($('#sv'),(x,y)=>{S.color.s=x;S.color.v=1-y;colorChanged()});
 drag($('#hue'),x=>{S.color.h=Math.min(.9999,x);colorChanged()});
+function keyNudge(el,fn){el.addEventListener('keydown',e=>{const k={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(!k)return;e.preventDefault();fn(k[0]*(e.shiftKey?.1:.02),k[1]*(e.shiftKey?.1:.02))})}
+keyNudge($('#sv'),(dx,dy)=>{S.color.s=Math.min(1,Math.max(0,S.color.s+dx));S.color.v=Math.min(1,Math.max(0,S.color.v-dy));colorChanged()});
+keyNudge($('#hue'),dx=>{S.color.h=Math.min(.9999,Math.max(0,S.color.h+dx/2));colorChanged()});
+const PRESETS=['#FF2A2A','#FF7A1A','#FFD21A','#5BFF2A','#1AFFB0','#1AC8FF','#2A5BFF','#8A2BE2','#FF2AC8','#FFFFFF'];
+const setHex=h=>{Object.assign(S.color,rgb2hsv(...h.slice(1).match(/../g).map(x=>parseInt(x,16))));colorChanged()};
+function swatchRow(el,list){el.innerHTML=list.map(c=>`<button type="button" data-c="${c}" style="background:${c}" title="${c}" aria-label="${c}"></button>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>setHex(b.dataset.c))}
+function rememberColor(h){const r=[h,...store.get('recent',[]).filter(x=>x!==h)].slice(0,10);store.set('recent',r);paintRecent()}
+function paintRecent(){swatchRow($('#recent'),store.get('recent',[]).filter(c=>/^#[0-9A-F]{6}$/i.test(c)))}
+swatchRow($('#presets'),PRESETS);paintRecent();
 let inputLock=false;
 function paintPicker(){
   const c=S.color,h=hex(),[r,g,b]=hsv2rgb(c.h,c.s,c.v);
@@ -360,32 +480,45 @@ function paintPicker(){
   $('#huek').style.left=c.h*100+'%';$('#huek').style.setProperty('--hc','#'+hsv2rgb(c.h,1,1).map(x=>x.toString(16).padStart(2,'0')).join(''));
   $('#sw').style.background=h;
   if(!inputLock){$('#hex').value=h.slice(1);$('#r').value=r;$('#g').value=g;$('#b').value=b}
+  $('#sumColor').style.background=h;
+  document.querySelectorAll('.presets button').forEach(b=>b.classList.toggle('on',b.dataset.c.toUpperCase()===h));
 }
 $('#hex').addEventListener('input',e=>{const v=e.target.value.replace('#','');if(/^[0-9a-fA-F]{6}$/.test(v)){const n=v.match(/../g).map(x=>parseInt(x,16));Object.assign(S.color,rgb2hsv(...n));inputLock=true;colorChanged();inputLock=false}});
 ['r','g','b'].forEach(id=>$('#'+id).addEventListener('input',()=>{const n=['r','g','b'].map(k=>Math.max(0,Math.min(255,+$('#'+k).value||0)));Object.assign(S.color,rgb2hsv(...n));inputLock=true;colorChanged();inputLock=false}));
 $('#copy').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(hex());toast('Copied '+hex())};
 if(window.EyeDropper){$('#eye').style.display='grid';$('#eye').onclick=async()=>{try{const r=await new EyeDropper().open();const n=r.sRGBHex.slice(1).match(/../g).map(x=>parseInt(x,16));Object.assign(S.color,rgb2hsv(...n));colorChanged()}catch(e){}}}
-$('#amount').oninput=()=>{$('#amountv').textContent=$('#amount').value+'%';schedulePreview()};
+$('#amount2').oninput=()=>{$('#amount2v').textContent=$('#amount2').value+'%';schedulePreview()};
+$('#lvl').oninput=()=>{$('#lvlv').textContent=$('#lvl').value+'%';schedulePreview()};
+$('#amount').oninput=()=>{$('#amountv').textContent=$('#amount').value+'%';$('#sumAmt').textContent=$('#amount').value+'%';schedulePreview()};
 $('#int').oninput=()=>{$('#intv').textContent=$('#int').value+'%';schedulePreview()};
 ['mode','white','ind'].forEach(i=>$('#'+i).addEventListener('change',schedulePreview));
+function syncMode(){const m=$('#mode').value;document.querySelectorAll('#modeSeg button').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.m===m)));
+  $('#sumAmt').textContent=$('#amount').value+'%'}
+document.querySelectorAll('#modeSeg button').forEach(b=>b.onclick=()=>{$('#mode').value=b.dataset.m;syncMode();schedulePreview()});syncMode();
 let pt=null;
 function colorChanged(){paintPicker();schedulePreview()}
 function cur(){return{...settings(),char:S.char.id,var:S.vari,group:S.group.key}}
 let previewVersion=0;
-function schedulePreview(){const version=++previewVersion;if(!S.group)return;clearTimeout(pt);const request=cur(),key=gkey();pt=setTimeout(async()=>{
-  try{const p=(await post('/api/preview',request)).palette;if(version!==previewVersion||!S.group||gkey()!==key)return;S.previews[key]=p;renderPrev(p);paintCard()}catch(e){if(version===previewVersion)toast(e.message,true)}},120)}
+function schedulePreview(){const version=++previewVersion;if(!S.group){renderPrev([],[]);renderInfo({},{});return}clearTimeout(pt);const request=cur(),key=gkey();pt=setTimeout(async()=>{
+  try{const info=await post('/api/preview',request),p=info.palette;if(version!==previewVersion||!S.group||gkey()!==key)return;S.previews[key]=p;renderPrev(info.after?.length?info.after:p,info.before||S.group.palette);renderInfo(info,request);paintCard()}catch(e){if(version===previewVersion)toast(e.message,true)}},120)}
 const gkey=()=>S.char.id+'|'+S.vari+'|'+S.group.key;
-function renderPrev(p){$('#prev').innerHTML=p.map(c=>`<div style="background:${c}"></div>`).join('')}
+function renderInfo(i,r){const el=$('#prevInfo');if(!r.secondary){el.innerHTML='';return}
+  const warn=[];if(!i.second_fields)warn.push('No effects matched the second color — tick other parts.');else if(!i.main_fields)warn.push('Everything went to the second color — untick some parts.');
+  if(i.second_dark)warn.push('Very dark second colors can hide glows and fire; best on smoke and trails.');
+  if(i.shared_materials)warn.push(i.shared_materials+' shared material(s) keep the main color.');
+  el.innerHTML=`Main color <b>${i.main_fields}</b> · Second color <b>${i.second_fields}</b> color fields`+warn.map(w=>`<span class="w">⚠ ${esc(w)}</span>`).join('')}
+function renderPrev(p,before){const bar=l=>(l||[]).map(c=>`<div style="background:${c}" title="${c}"></div>`).join('');$('#prev').innerHTML=bar(p);$('#before').innerHTML=bar(before)}
 
 /* ---------- two-colour mode ---------- */
 const PARTS=[['trail','Trails & tails',1],['smoke','Smoke, dust & debris',1],['impact','Hit & impact',0],['aura','Body, aura & hand',0],['light','Point lights',0]];
-$('#partList').innerHTML=PARTS.map(([k,l,on])=>`<label class="chk" style="margin-top:6px"><input type="checkbox" class="part" value="${k}" ${on?'checked':''}><span>${l}</span></label>`).join('');
+$('#partList').innerHTML=PARTS.map(([k,l,on])=>`<label><input type="checkbox" class="part" value="${k}" ${on?'checked':''}>${l}</label>`).join('');
 const secHex=()=>'#'+($('#sechex').value.replace('#','')||'000000').toUpperCase();
-function secondary(){return $('#two').checked&&/^#[0-9A-F]{6}$/.test(secHex())?{hex:secHex(),parts:[...document.querySelectorAll('.part:checked')].map(x=>x.value)}:null}
-$('#two').onchange=()=>{$('#secBox').style.display=$('#two').checked?'block':'none';schedulePreview()};
-$('#secpick').oninput=e=>{$('#sechex').value=e.target.value.slice(1).toUpperCase();schedulePreview()};
-$('#sechex').oninput=()=>{if(/^[0-9a-fA-F]{6}$/.test($('#sechex').value))$('#secpick').value='#'+$('#sechex').value;schedulePreview()};
-document.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>{$('#sechex').value=b.dataset.sw;$('#secpick').value='#'+b.dataset.sw;schedulePreview()});
+function secondary(){return $('#two').checked&&/^#[0-9A-F]{6}$/.test(secHex())?{hex:secHex(),parts:[...document.querySelectorAll('.part:checked')].map(x=>x.value),amount:Number($('#amount2').value)}:null}
+function syncTwo(){const on=$('#two').checked;$('#secBox').style.display=on?'block':'none';$('#sumSec').hidden=!on;$('#sumSec').style.background=secHex();$('#amountLbl').textContent=on?'Main color amount':'Effect amount'}
+$('#two').onchange=()=>{syncTwo();schedulePreview()};
+$('#secpick').oninput=e=>{$('#sechex').value=e.target.value.slice(1).toUpperCase();syncTwo();schedulePreview()};
+$('#sechex').oninput=()=>{if(/^[0-9a-fA-F]{6}$/.test($('#sechex').value))$('#secpick').value='#'+$('#sechex').value;syncTwo();schedulePreview()};
+document.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>{$('#sechex').value=b.dataset.sw;$('#secpick').value='#'+b.dataset.sw;syncTwo();schedulePreview()});
 document.querySelectorAll('.part').forEach(c=>c.onchange=schedulePreview);
 
 /* ---------- dropdowns ---------- */
@@ -404,9 +537,11 @@ function fillVfxList(){$('#vfxList').innerHTML=S.groups.map(g=>`<div class="opt 
 function gradFor(id){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))%360;return`linear-gradient(135deg,hsl(${h},55%,28%),hsl(${(h+50)%360},60%,14%))`}
 function renderTop(){
   const t=$('#top');
-  if(!S.char){t.innerHTML=`<div><h2>Characters</h2><div class="hint">Select a character to view available VFX.</div></div><input class="search" id="gridQ" placeholder="Search characters…">`;
+  const menu='<button class="menu" data-menu aria-label="Show controls">☰</button>';
+  if(!S.char){t.innerHTML=`${menu}<div><h2>Characters</h2><div class="hint">${S.chars.length?S.chars.filter(c=>c.effects).length+' characters with effects · pick one to choose its skills':'Select a character to view available VFX.'}</div></div><input class="search" id="gridQ" placeholder="Search characters…  ( / )" aria-label="Search characters">`;
     $('#gridQ').oninput=renderChars}
-  else{t.innerHTML=`<button class="back" id="back">← Characters</button><div class="hint">Pick an effect, choose a color, then press <b>ADD SELECTED EFFECT AS OVERRIDE</b>.</div>`;$('#back').onclick=()=>{S.char=null;S.group=null;S.groups=[];refreshSide();render()}}
+  else{t.innerHTML=`${menu}<button class="back" id="back" title="Back (Esc)">←</button><div class="crumb"><span>Characters</span><span>/</span><b>${esc(S.char.name)}</b>${S.group?`<span>/</span><b>${esc(S.group.label)}</b>`:''}</div><div class="hint" style="margin-left:auto">Pick a skill → color → <b>Generate pak</b> or <b>Add override</b></div>`;$('#back').onclick=goHome}
+  t.querySelector('[data-menu]').onclick=()=>document.body.classList.add('drawer');
 }
 // Trim transparent margins for display so every character's face sits near
 // the top of the same-sized card, including newly decoded native PNGs.
@@ -427,9 +562,10 @@ function framePortrait(img){
  }catch(e){img.style.objectFit='contain'}
 }
 window.addEventListener('resize',()=>requestAnimationFrame(()=>document.querySelectorAll('.character-portrait').forEach(framePortrait)));
+function goHome(){S.char=null;S.group=null;S.groups=[];refreshSide();render()}
 function charCard(c,i){
   const picture=c.portrait?`<img class="character-portrait" src="${c.portrait}" alt="${esc(c.name)}" loading="lazy" decoding="async" draggable="false" onload="framePortrait(this)">`:'<div class="portrait-placeholder">Portrait unavailable</div>';
-  return`<div class="card character ${S.char&&S.char.id==c.id?'sel':''} ${c.effects?'':'dim'}" data-id="${c.id}" style="animation-delay:${Math.min(i,20)*25}ms">
+  return`<div class="card character ${S.char&&S.char.id==c.id?'sel':''} ${c.effects?'':'dim'}" data-id="${c.id}" tabindex="0" role="button" aria-label="${esc(c.name)} ${c.id}" style="animation-delay:${Math.min(i,20)*25}ms">
    <div class="art" style="background:${gradFor(c.id)}">${picture}</div>
    <div class="meta"><div class="n">${esc(c.name)}</div><div class="i">${c.id}</div><div class="s">${c.effects?c.effects+' effect files'+(c.variants.length>1?' · '+c.variants.length+' variations':''):'No effect files imported yet'}</div></div>${S.excl.has(c.id)?'<div class="badge">EXCLUDED</div>':''}</div>`}
 function renderChars(){
@@ -446,7 +582,7 @@ function vfxCard(g,i){
   const pal=S.previews[S.char.id+'|'+S.vari+'|'+g.key]||g.palette;
   const q=S.queue.find(x=>x.key==S.char.id+'|'+S.vari+'|'+g.key);
   const shown=q?q.palette:pal;
-  return`<div class="card ${S.group&&S.group.key==g.key?'sel':''}" data-k="${g.key}" style="animation-delay:${i*40}ms">
+  return`<div class="card ${S.group&&S.group.key==g.key?'sel':''}" data-k="${g.key}" tabindex="0" role="button" aria-label="${esc(g.label)}" style="animation-delay:${i*40}ms">
    <div class="art" id="art-${g.key}" style="background:${grad(shown)}"><div class="big" style="font-size:30px;letter-spacing:1px;text-shadow:0 2px 14px #000">${g.label.toUpperCase()}</div>
     ${q?`<div class="badge"><b style="background:${q.hex}"></b>SWAP QUEUED</div>`:''}
     <div class="swatches">${shown.map(c=>`<i style="background:${c}"></i>`).join('')}</div></div>
@@ -454,20 +590,22 @@ function vfxCard(g,i){
 function grad(p){if(!p.length)return'#1c2130';const q=p.filter(c=>c.toLowerCase()!='#ffffff'&&!/^#f[0-9a-f]f[0-9a-f]f/i.test(c));const c=q.length?q:p;const a=c[0],b=c[Math.min(1,c.length-1)],d=c[Math.min(2,c.length-1)];
   return`radial-gradient(circle at 25% 20%,${a}cc,transparent 58%),radial-gradient(circle at 80% 75%,${b}aa,transparent 60%),radial-gradient(circle at 60% 15%,${d}77,transparent 50%),linear-gradient(135deg,#171b28,#090a0f)`}
 function renderVfx(){
-  const c=S.char,vs=c.variants.length>1?`<div class="tools">${c.variants.map(v=>`<span class="pill ${v.key==S.vari?'on':''}" data-v="${v.key}">${v.label}</span>`).join('')}</div>`:'';
+  const c=S.char,vs=c.variants.length>1?`<div class="tools">${c.variants.map(v=>`<button type="button" class="pill ${v.key==S.vari?'on':''}" data-v="${v.key}">${v.label}</button>`).join('')}</div>`:'';
   $('#scroll').innerHTML=`<div class="vfxhead"><div class="n">${esc(c.name)}</div><div class="i">${c.id}</div>
-     <div class="tools"><span class="pill ${S.excl.has(c.id)?'':'on'}" id="incl">${S.excl.has(c.id)?'✗ Not in pak':'✓ Included in pak'}</span><span class="pill" id="setpic">Change picture</span><span class="pill" id="rename">Rename</span></div>${vs}</div>
+     <div class="tools"><button type="button" class="pill ${S.excl.has(c.id)?'':'on'}" id="incl" title="Include this character in GENERATE PAK — ALL CHARACTERS">${S.excl.has(c.id)?'✗ Not in pak':'✓ Included in pak'}</button><button type="button" class="pill" id="setpic">Change picture</button><button type="button" class="pill" id="rename">Rename</button></div>${vs}</div>
      ${S.groups.length?`<div class="grid">${S.groups.map(vfxCard).join('')}</div>`:`<div class="msg">No effect files for ${esc(c.name)} yet.<br><small>Some characters have no effects in the game. If it should have some, import its extracted Effect folder from the sidebar.</small></div>`}`;
   $('#incl').onclick=()=>{S.excl.has(c.id)?S.excl.delete(c.id):S.excl.add(c.id);render()};
   document.querySelectorAll('.card[data-k]').forEach(el=>el.onclick=()=>pickGroup(el.dataset.k));
   document.querySelectorAll('.pill[data-v]').forEach(el=>el.onclick=()=>loadGroups(el.dataset.v));
   $('#setpic').onclick=()=>$('#pfile').click();
-  $('#rename').onclick=async()=>{const n=prompt('Character name for '+c.id,c.name==='Unnamed character'?'':c.name);if(n){await post('/api/rename',{char:c.id,name:n});await refresh();render()}}}
+  $('#rename').onclick=async()=>{const n=await ask('Rename '+c.id,'Character name',c.name==='Unnamed character'?'':c.name);if(n){try{await post('/api/rename',{char:c.id,name:n});await refresh();render();toast('Renamed to '+n)}catch(e){toast(e.message,true)}}}}
 function paintCard(){const g=S.group;if(!g)return;const el=$('#art-'+g.key);if(!el)return;const p=S.previews[gkey()]||g.palette;el.style.background=grad(p);el.querySelector('.swatches').innerHTML=p.map(c=>`<i style="background:${c}"></i>`).join('')}
 function render(){renderTop();S.char?renderVfx():renderChars();refreshSide()}
 function refreshSide(){
   const c=S.char;
   $('#charTxt').innerHTML=c?`${esc(c.name)}<small>${c.id}</small>`:'Choose a character…';
+  $('#sumChar').textContent=c?c.name:'';$('#sumFx').textContent=S.group?S.group.label:'';
+  $('#qCount').hidden=!S.queue.length;$('#qCount').textContent=S.queue.length;
   $('#charThumb').style.backgroundImage=c&&c.portrait?`url(${c.portrait})`:'';
   $('#varRow').innerHTML=c&&c.variants.length>1?c.variants.map(v=>`<span class="pill ${v.key==S.vari?'on':''}" data-v="${v.key}">${v.label}</span>`).join(''):'';
   document.querySelectorAll('#varRow .pill').forEach(el=>el.onclick=()=>loadGroups(el.dataset.v));
@@ -477,7 +615,7 @@ function refreshSide(){
   fillVfxList();
   $('#apply').disabled=!g;$('#genAll').disabled=!S.chars.some(c=>c.effects);
   $('#export').disabled=!S.queue.length;
-  $('#queue').innerHTML=S.queue.length?S.queue.map((q,i)=>`<div class="qi"><span class="dot" style="background:${q.hex}"></span>${q.secondary?`<span class="dot" style="background:${q.secondary.hex};margin-left:-10px;border:1px solid #fff4"></span>`:''}<span>${esc(q.charName)} · ${esc(q.label)} · ${q.amount??100}% FX</span><span class="x" data-i="${i}" title="Remove">✕</span></div>`).join(''):'<div class="empty">Optional. Use overrides to give one skill a different color than the rest.</div>';
+  $('#queue').innerHTML=S.queue.length?S.queue.map((q,i)=>`<div class="qi"><span class="dot" style="background:${q.hex}"></span>${q.secondary?`<span class="dot" style="background:${q.secondary.hex};margin-left:-10px;border:1px solid #fff4"></span>`:''}<span class="lab" title="${esc(q.charName)} · ${esc(q.label)} · ${q.hex}">${esc(q.charName)} · ${esc(q.label)}<small style="color:var(--mut)"> · ${q.amount??100}%</small></span><button type="button" class="x" data-i="${i}" title="Remove" aria-label="Remove override">✕</button></div>`).join(''):'<div class="empty">Optional — give single skills their own color on top of the all-characters color.</div>';
   document.querySelectorAll('.qi .x').forEach(x=>x.onclick=()=>{S.queue.splice(+x.dataset.i,1);render()});
 }
 
@@ -487,19 +625,19 @@ async function pickChar(id){
   if(!S.char.variants.length){render();return}
   await loadGroups(S.char.variants[0].key)}
 async function loadGroups(v){
-  S.vari=v;S.group=null;busy('Extracting VFX previews…');
+  S.vari=v;S.group=null;busy('Loading '+S.char.name+' effects…');
   try{S.groups=await api(`/api/groups?char=${S.char.id}&var=${v}`);}catch(e){toast(e.message,true)}
   idle();render();if(S.groups.length)pickGroup(S.groups[0].key)}
 function pickGroup(k){S.group=S.groups.find(g=>g.key==k);document.querySelectorAll('.card[data-k]').forEach(el=>el.classList.toggle('sel',el.dataset.k==k));refreshSide();
-  const q=S.queue.find(x=>x.key==gkey());if(q){Object.assign(S.color,rgb2hsv(...q.hex.slice(1).match(/../g).map(x=>parseInt(x,16))));$('#mode').value=q.mode;$('#amount').value=q.amount??100;$('#amountv').textContent=(q.amount??100)+'%';$('#int').value=q.intensity*100;$('#intv').textContent=Math.round(q.intensity*100)+'%';$('#white').checked=q.tint_white;$('#ind').checked=q.indicators;$('#two').checked=!!q.secondary;$('#secBox').style.display=q.secondary?'block':'none';if(q.secondary){$('#sechex').value=q.secondary.hex.slice(1);$('#secpick').value=q.secondary.hex;document.querySelectorAll('.part').forEach(c=>c.checked=q.secondary.parts.includes(c.value))}}
+  renderTop();const q=S.queue.find(x=>x.key==gkey());if(q){Object.assign(S.color,rgb2hsv(...q.hex.slice(1).match(/../g).map(x=>parseInt(x,16))));$('#mode').value=q.mode;$('#amount').value=q.amount??100;$('#amountv').textContent=(q.amount??100)+'%';$('#lvl').value=q.level_spread??60;$('#lvlv').textContent=(q.level_spread??60)+'%';$('#int').value=q.intensity*100;$('#intv').textContent=Math.round(q.intensity*100)+'%';$('#white').checked=q.tint_white;$('#ind').checked=q.indicators;$('#two').checked=!!q.secondary;$('#secBox').style.display=q.secondary?'block':'none';if(q.secondary){const a2=q.secondary.amount??q.amount??100;$('#amount2').value=a2;$('#amount2v').textContent=a2+'%';$('#sechex').value=q.secondary.hex.slice(1);$('#secpick').value=q.secondary.hex;document.querySelectorAll('.part').forEach(c=>c.checked=q.secondary.parts.includes(c.value))}syncMode();syncTwo()}
   paintPicker();schedulePreview()}
 $('#apply').onclick=async()=>{
   if(!S.group)return;const a=cur(),key=gkey(),charName=S.char.name,label=S.group.label+(S.vari!='base'?' ('+S.vari+')':'');
   try{const p=(await post('/api/preview',a)).palette;
   const item={...a,key,palette:p,charName,label};
   const i=S.queue.findIndex(x=>x.key==item.key);i>=0?S.queue[i]=item:S.queue.push(item);
-  toast(`Override added: ${charName} · ${label} → ${a.hex}`);render()}catch(e){toast(e.message,true)}};
-const settings=()=>({hex:hex(),mode:$('#mode').value,intensity:$('#int').value/100,amount:Number($('#amount').value),tint_white:$('#white').checked,indicators:$('#ind').checked,secondary:secondary()});
+  rememberColor(a.hex);toast(`Override added: ${charName} · ${label} → ${a.hex}`);render()}catch(e){toast(e.message,true)}};
+const settings=()=>({hex:hex(),mode:$('#mode').value,intensity:$('#int').value/100,amount:Number($('#amount').value),level_spread:Number($('#lvl').value),tint_white:$('#white').checked,indicators:$('#ind').checked,secondary:secondary()});
 const overrides=()=>S.queue.map(({key,palette,charName,label,...r})=>r);
 $('#genAll').onclick=()=>runExport({global:settings(),exclude:[...S.excl],assignments:overrides()},'RedVFX_All');
 $('#export').onclick=()=>runExport({assignments:overrides(),exclude:[...S.excl]},'MHUR_VFX_Overrides');
@@ -507,22 +645,35 @@ async function runExport(body,def){
   const name=$('#modname').value.trim()||def;
   busy('Building pak…',0);
   try{const {job}=await post('/api/export',{name,...body});
-    const res=await waitJob(job,'Building pak…');idle();showResult(res)}catch(e){idle();toast(e.message,true)}}
+    const res=await waitJob(job,'Building pak…');idle();if(body.global)rememberColor(body.global.hex);showResult(res)}catch(e){idle();toast(e.message,true)}}
 async function waitJob(id,txt){for(;;){const j=await api('/api/job?id='+id);busy(j.text||txt,j.total?j.done/j.total:0);
   if(j.state=='done')return j.result;if(j.state=='error')throw new Error(j.error);await new Promise(r=>setTimeout(r,250))}}
 function showResult(r){
-  const miss=r.missing_count?`<div class="warn"><b>${r.missing_count} referenced material(s) are not in your library</b> so their color could not change (particle colors were still changed). Import them via “Import default game assets”.<ul>${r.missing.slice(0,6).map(x=>`<li>${x}</li>`).join('')}${r.missing_count>6?'<li>…</li>':''}</ul></div>`:'';
+  const miss=r.missing_count?`<div class="warn"><b>${r.missing_count} referenced material(s) are not in your library</b> so their color could not change (particle colors were still changed). Run <b>Update from game files</b> in ⚙ settings, or import them under <b>7 · Overrides</b>.<ul>${r.missing.slice(0,6).map(x=>`<li>${x}</li>`).join('')}${r.missing_count>6?'<li>…</li>':''}</ul></div>`:'';
   const sh=r.shared&&r.shared.length?`<div class="warn"><b>Shared materials</b> are also used by effects you did not swap, so those effects change color too:<ul>${r.shared.slice(0,6).map(x=>`<li>${x}</li>`).join('')}${r.shared.length>6?`<li>…and ${r.shared.length-6} more</li>`:''}</ul></div>`:'';
   const limits=[r.amount_unsupported?.length?`${r.amount_unsupported.length} effects have no supported spawn settings; their amount could not be reduced.`:'',r.two_color_shared?.length?`${r.two_color_shared.length} materials are shared by main and secondary parts. They keep the main color; emitter colors use the selected split.`:'',r.secondary_requested&&!r.secondary_fields?'No matching secondary color fields were found. Try different part categories.':''].filter(Boolean);
   const notices=limits.map(t=>`<div class="warn">${t}</div>`).join('');
   $('#mbox').innerHTML=`<h3>✅ Mod exported</h3><div class="kv"><span>File</span><span><b>${r.file}</b></span><span>Size</span><span>${(r.size/1048576).toFixed(2)} MB</span><span>Characters</span><span>${r.characters}</span><span>Assets patched</span><span>${r.assets}</span></div>${sh}${miss}${notices}
    <div class="steps"><b>Install:</b> copy the .pak into your game's <code>HerovsGame/Content/Paks</code> folder (create a <code>~mods</code> subfolder if you like), then start the game.</div>
    <div class="mrow"><a class="btn main" style="text-decoration:none;text-align:center" href="${r.url}" download>SAVE .PAK</a><button class="btn sec" style="margin:0" id="openf">OPEN EXPORTS FOLDER</button><button class="btn sec" style="margin:0" id="mclose">CLOSE</button></div>`;
-  $('#modal').classList.add('open');$('#mclose').onclick=()=>$('#modal').classList.remove('open');$('#openf').onclick=()=>post('/api/open_exports',{})}
-$('#modal').onclick=e=>{if(e.target.id=='modal')$('#modal').classList.remove('open')};
+  modalClose=null;$('#modal').classList.add('open');$('#mclose').onclick=closeModal;$('#mclose').focus();$('#openf').onclick=()=>post('/api/open_exports',{})}
+$('#modal').onclick=e=>{if(e.target.id=='modal')closeModal()};
+/* keyboard: Enter/Space on cards, Esc closes, / focuses search */
+document.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')&&e.target.classList?.contains('card')){e.preventDefault();e.target.click();return}
+  if(e.key==='Escape'){if($('#modal').classList.contains('open'))return closeModal();
+    const open=document.querySelector('.pop.open');if(open)return open.classList.remove('open');
+    if(document.body.classList.contains('drawer'))return document.body.classList.remove('drawer');
+    if(S.char&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))goHome()}
+  if(e.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)&&$('#gridQ')){e.preventDefault();$('#gridQ').focus()}});
+$('#menuBtn').onclick=()=>document.body.classList.remove('drawer');$('#scrim').onclick=()=>document.body.classList.remove('drawer');
+/* remember which sidebar sections are open */
+document.querySelectorAll('details.sec').forEach(d=>{const st=store.get('sec',{});if(d.dataset.sec in st)d.open=st[d.dataset.sec];
+  d.addEventListener('toggle',()=>{const st=store.get('sec',{});st[d.dataset.sec]=d.open;store.set('sec',st)})});
+$('#modname').value=store.get('modname','');$('#modname').addEventListener('change',()=>store.set('modname',$('#modname').value.trim()));
 
 $('#importLink').onclick=()=>$('#importFile').click();
-$('#importPath').onclick=async()=>{const p=prompt('Full path of the folder (or .zip/.pak) that holds the extracted game files, e.g. C:\\Exports\\HerovsGame\\Content\\Character');if(!p)return;busy('Importing default assets… (this can take a while)');
+$('#importPath').onclick=async()=>{const p=await ask('Import extracted game files','Full path of the folder, .zip or .pak','','C:\\Exports\\HerovsGame\\Content\\Character');if(!p)return;busy('Importing default assets… (this can take a while)');
   try{const {job}=await post('/api/import_path',{path:p});const r=await waitJob(job,'Importing…');await refresh();idle();render();toast(`Imported ${r.imported} assets`)}catch(x){idle();toast(x.message,true)}};
 $('#importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;busy('Importing default assets…');
   try{const {job}=await api('/api/import?name='+encodeURIComponent(f.name),{method:'POST',body:f});const r=await waitJob(job,'Importing…');await refresh();idle();render();toast(`Imported ${r.imported} assets`)}catch(x){idle();toast(x.message,true)}e.target.value=''};

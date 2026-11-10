@@ -1,12 +1,21 @@
-# MHUR VFX Color Swapper v2.2.0
+# MHUR VFX Color Swapper v2.3.0
 
 A Windows tool for recoloring My Hero Ultra Rumble character effects, adjusting
 particle amount, and exporting `.pak` mods. Includes native character cards,
 two-color mode, saved themes, and game update checks.
 
+## What's new in 2.3.0
+
+- **Exact color mode is the default.** The picked color is applied at full strength (picked hue *and* saturation); "Shift hue" is still available for keeping color variety. Target brightness is now applied in linear light, so a picked grey/dark color comes out as that color in game instead of lighter.
+- **Skill levels.** Effects named `_L1/_L2/_L3` (and `Gasha_` max-level variants) are handled per level: max level (L3, level 9 in game) gets exactly your color, lower levels get a slightly different shade. Adjust with *Lower-level difference* (0% = identical).
+- **Two-color fixes.** Part detection now matches whole words (`White` is no longer "hit", `Lightning` is no longer a light). The preview shows how many color fields go to the main and second color and warns about very dark second colors, empty splits and shared materials.
+- **Several overrides touching the same file** no longer overwrite or remove each other's changes.
+- **Second color effect amount.** Two-color mode has its own particle-amount slider for the parts you assign to the second color; the main *Effect amount* slider then controls the rest.
+- **Reworked interface.** Numbered, collapsible sidebar steps; color presets and recent colors; before/after palette preview; segmented color-mode switch and toggle switches; breadcrumb navigation; in-app dialogs instead of browser pop-ups; keyboard support (Enter on cards, Esc to go back/close, `/` to search, arrow keys in the color picker); a slide-in control drawer on narrow windows; light-theme contrast fixes.
+- **Error log.** Unexpected errors are written to `logs/errors.log` in the data folder (the windowed EXE has no console), so bug reports can include details.
+- Server hardening for rename and groups requests; new regression tests.
+
 [Download the latest Windows release](https://github.com/ASTRO45366/MHUR-VFX-Color-Swapper/releases/latest).
-Choose the standalone EXE or the release ZIP with instructions and licenses.
-The release page also provides the source ZIP and download checksums.
 
 ## Run the standalone EXE
 
@@ -40,27 +49,6 @@ The app serves its UI on loopback (`127.0.0.1`), reads local game archives, and
 writes local settings, caches and exports. The app does not upload game files.
 The release and source ZIPs contain no game PAKs, character artwork, extracted
 particle assets, settings, or user-generated mods.
-
-## Antivirus review
-
-The Windows EXE is unsigned. Its initial VirusTotal scan on November 3, 2026
-reported detections from Arctic Wolf, Bkav Pro, CrowdStrike Falcon, and SecureAge.
-Suspected false-positive reports were submitted to all four vendors. Review is
-pending. The release page includes checksums for the EXE and download archives.
-
-The published EXE has SHA-256
-`becbbad84c5bb1c81a7c2990d7254c13478f26b65b3b2f0b4e03b1e4a2823b06`.
-[View the VirusTotal report](https://www.virustotal.com/gui/file/becbbad84c5bb1c81a7c2990d7254c13478f26b65b3b2f0b4e03b1e4a2823b06/detection).
-
-## Gameplay scope
-
-An audit of this EXE and 9,932 locally imported effect/material assets found
-changes limited to particle colors, lighting, and particle spawning. A sample
-export contained effect/material assets and attribution metadata. No hitbox,
-damage, range, cooldown, movement, or targeting changes were found.
-
-Brighter colors and optional enemy/friend area indicator recoloring can make
-attacks or danger zones easier to notice. Live gameplay behavior was not tested.
 
 ## Read the source
 
