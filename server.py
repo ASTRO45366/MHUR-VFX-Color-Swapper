@@ -17,7 +17,21 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from core.engine import Engine
 from preferences import Preferences
-from core.game_update import GameUpdater, detect_game_folder, read_manifest, game_folder, original_paks, fingerprint, library_base_id
+from core.textures import TextureStore
+from core.game_update import UpdateCancelled, GameUpdater, detect_game_folder, read_manifest, game_folder, original_paks, fingerprint, library_base_id
+
+
+INSTALL_DIR = 'MHUR VFX Color Swapper'
+
+
+def install_folder(paks):
+    """<game>\\HerovsGame\\Content\\Paks\\Mods\\MHUR VFX Color Swapper (reuses an existing Mods folder's spelling)."""
+    mods = paks / 'Mods'
+    try:
+        mods = next((p for p in paks.iterdir() if p.is_dir() and p.name.lower() == 'mods'), mods)
+    except OSError:
+        pass
+    return mods / INSTALL_DIR
 
 
 class App:
@@ -28,10 +42,13 @@ class App:
         self.preferences = Preferences(base)
         self.engine.bundled_portraits = self.web.parent / 'portraits'
         self.tools = self.web.parent / 'tools'
+        self.engine.texture_store = TextureStore(self.base, self.tools, self.preferences.read)
         self.game_status = {'state': 'idle', 'text': ''}
         self.initializing = False
         self.jobs = {}
         self.last_ping = None
+        self.closed_at = None
+        self.game_cancel = threading.Event()
         self.started = time.time()
 
     def log_error(self, context):
@@ -69,6 +86,8 @@ class App:
             if prefs['auto_game_update'] and prefs['game_folder']:
                 try:
                     self.refresh_game(prefs)
+                except UpdateCancelled:
+                    pass  # the player chose to skip it; the previous library is used
                 except Exception:
                     # A bad path/key/new format must not prevent using the prior library.
                     self.log_error('automatic game update')
@@ -76,6 +95,7 @@ class App:
             self.initializing = False
 
     def refresh_game(self, prefs, job=None, force=False):
+        self.game_cancel.clear()
         with self.engine._lock:
             self.game_status = {'state': 'busy', 'text': 'Reading installed game files…'}
             def progress(text, done, total):
@@ -83,7 +103,8 @@ class App:
                 if job is not None:
                     job.update(text=text, done=done, total=max(total, 1))
             try:
-                result = GameUpdater(self.engine, self.tools).run(prefs['game_folder'], prefs['game_aes'], progress, force)
+                result = GameUpdater(self.engine, self.tools).run(prefs['game_folder'], prefs['game_aes'], progress, force,
+                                                                  cancel=self.game_cancel.is_set)
                 self.game_status = {'state': 'ready', 'text': result['text']}
                 return result
             except Exception as exc:
@@ -92,6 +113,17 @@ class App:
             finally:
                 if self.engine.lib.scanned:
                     self.engine.status = {'state': 'ready', 'text': '', 'done': 1, 'total': 1}
+
+    def paks_folder(self):
+        """The game's Content/Paks folder, if it is set (or found) and exists."""
+        prefs = self.preferences.read()
+        for value in (prefs.get('game_folder'), detect_game_folder()):
+            if value:
+                try:
+                    return game_folder(value)
+                except (OSError, ValueError):
+                    continue
+        return None
 
     def update_info(self):
         manifest, _ = read_manifest(self.base)
@@ -203,6 +235,7 @@ def make_handler(app: App):
                     status = eng.status
                     if app.initializing and status['state'] == 'ready':
                         status = {'state': 'busy', 'text': 'Checking installed game data…', 'done': 0, 'total': 1}
+                    status = dict(status, game_busy=app.game_status.get('state') == 'busy')
                     return self._send(200, {'status': status,
                                             'characters': eng.characters() if status['state'] == 'ready' else []})
                 if p == '/api/groups':
@@ -226,6 +259,12 @@ def make_handler(app: App):
             p = u.path
             try:
                 data = self._body()
+                if p == '/api/bye':
+                    app.closed_at = time.time()   # window closed or reloading; a new ping cancels it
+                    return self._send(200, {'ok': True})
+                if p == '/api/game/cancel':
+                    app.game_cancel.set()
+                    return self._send(200, {'ok': True})
                 if p == '/api/settings':
                     return self._send(200, app.preferences.update(json.loads(data)))
                 if p == '/api/game/update':
@@ -243,14 +282,23 @@ def make_handler(app: App):
                     def run(job):
                         job['text'] = 'Building mod...'
 
-                        def prog(i, n):
+                        def prog(i, n, text=None):
                             job.update(done=i, total=n)
+                            if text:
+                                job['text'] = text
+                        objects = req.get('objects') or {}
+                        if not isinstance(objects, dict):
+                            raise ValueError('Invalid solid-object settings.')
                         out, rep = eng.build(req.get('assignments', []), req.get('name') or 'MHUR_VFX_Recolor', prog,
-                                             req.get('global'), set(req.get('exclude', [])))
+                                             req.get('global'), set(req.get('exclude', [])), objects,
+                                             bool(app.preferences.read().get('compress_paks')))
                         if out is None:
                             raise RuntimeError('Nothing changed. Colors and particle amount match the originals, or the selected assets have no supported fields.')
                         rep['url'] = '/exports/' + out.name
                         rep['path'] = str(out)
+                        rep['folder'] = str(out.parent)
+                        rep['library_updated'] = bool(read_manifest(app.base)[0])
+                        rep['can_install'] = app.paks_folder() is not None
                         return rep
                     return self._send(200, {'job': app.job(run)})
                 if p == '/api/import':
@@ -291,6 +339,46 @@ def make_handler(app: App):
                     eng.names[req['char']] = req['name'].strip()[:40]
                     (app.base / 'characters.json').write_text(json.dumps(eng.names, indent=2), encoding='utf-8')
                     return self._send(200, {'ok': True})
+                if p == '/api/install':
+                    req = json.loads(data)
+                    name = Path(str(req.get('file', ''))).name
+                    src = eng.exports / name
+                    if not name.lower().endswith('.pak') or not src.is_file():
+                        raise ValueError('That exported pak no longer exists.')
+                    paks = app.paks_folder()
+                    if paks is None:
+                        raise ValueError('Set your game folder in ⚙ Settings first.')
+                    dest = install_folder(paks)
+                    tmp = dest / (name + '.part')
+                    try:
+                        dest.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(src, tmp)
+                        os.replace(tmp, dest / name)
+                    except OSError:
+                        tmp.unlink(missing_ok=True)
+                        raise ValueError('Could not copy the mod into the game folder. Close the game first '
+                                         '(Windows locks mod files while it runs), then press Install again.')
+                    # Older versions installed into Paks\~mods: remove that copy so the mod is not loaded twice.
+                    legacy = paks / '~mods'
+                    try:
+                        (legacy / name).unlink(missing_ok=True)
+                        if legacy.is_dir() and not any(legacy.iterdir()):
+                            legacy.rmdir()
+                    except OSError:
+                        pass
+                    return self._send(200, {'ok': True, 'path': str(dest / name),
+                                            'folder': str(dest.relative_to(paks.parent.parent))})
+                if p == '/api/diagnose':
+                    req = json.loads(data)
+                    char, var, group = str(req.get('char')), str(req.get('var')), str(req.get('group'))
+                    if not re.fullmatch(r'Ch\d+', char) or not re.fullmatch(r'base|Var\d+', var) or \
+                            not re.fullmatch(r'[a-z]+', group):
+                        raise ValueError('Pick a character and skill first.')
+                    text = eng.diagnose(char, var, group)
+                    eng.exports.mkdir(parents=True, exist_ok=True)
+                    out = eng.exports / f'report_{char}_{var}_{group}.txt'
+                    out.write_text(text, encoding='utf-8')
+                    return self._send(200, {'ok': True, 'file': out.name, 'path': str(out)})
                 if p == '/api/open_exports':
                     d = str(eng.exports)
                     if sys.platform.startswith('win'):

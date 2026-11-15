@@ -7,7 +7,7 @@ from pathlib import Path
 
 THEMES = ('midnight', 'amoled', 'ocean', 'forest', 'crimson', 'sunset', 'light', 'system')
 DEFAULTS = {'theme': 'midnight', 'compact': False, 'reduce_motion': False,
-            'game_folder': '', 'game_aes': '', 'auto_game_update': True}
+            'game_folder': '', 'game_aes': '', 'auto_game_update': True, 'compress_paks': False}
 
 
 class Preferences:
@@ -26,7 +26,7 @@ class Preferences:
             raise ValueError('Unknown appearance setting.')
         if 'theme' in data and data['theme'] not in THEMES:
             raise ValueError('Unknown theme.')
-        for key in ('compact', 'reduce_motion', 'auto_game_update'):
+        for key in ('compact', 'reduce_motion', 'auto_game_update', 'compress_paks'):
             if key in data and not isinstance(data[key], bool):
                 raise ValueError(f'{key} must be true or false.')
         for key in ('game_folder', 'game_aes'):

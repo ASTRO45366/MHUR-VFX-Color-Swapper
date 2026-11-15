@@ -3,7 +3,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 
-VERSION = '2.3.0'
+VERSION = '2.6.3'
 
 
 def add_credits(files):

@@ -17,10 +17,85 @@ import zipfile
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
 
-from .library import KEEP_PREFIX, Library
+from .library import KEEP_PREFIX, Library, is_effect_asset
 
 DEFAULT_AES = '0x332F41B1130F125444A35F420EC6D05EA3E27A972A36DAD90C83FC6958D941C7'
 BASE_PAK = re.compile(r'^(?:HerovsGame|pakchunk\d+)-WindowsNoEditor(?:_\d+_P)?\.pak$', re.I)
+STALL_SECONDS = 600
+
+
+class UpdateCancelled(ValueError):
+    def __init__(self):
+        super().__init__('Game update cancelled. The previous library was kept.')
+
+
+_GLOBS = {}
+
+
+def glob_match(pattern, name):
+    """repak-style include glob ('*' within a folder, '**/' across folders)."""
+    rx = _GLOBS.get(pattern)
+    if rx is None:
+        out, i = [], 0
+        while i < len(pattern):
+            if pattern.startswith('**/', i):
+                out.append('(?:.*/)?')
+                i += 3
+            elif pattern[i] == '*':
+                out.append('[^/]*')
+                i += 1
+            else:
+                out.append(re.escape(pattern[i]))
+                i += 1
+        rx = _GLOBS[pattern] = re.compile(''.join(out) + '$')
+    return bool(rx.match(name))
+
+
+def run_tool(args, cwd, label, secret='', cancel=None, watch=None, stall=None):
+    """Run a bundled reader; watch() -> progress count (resets the stall timer when it grows).
+
+    Output goes to a file (a pipe can fill up and block the reader), the user can
+    cancel, and a reader that stops making progress is stopped instead of leaving
+    the app on a loading screen forever.
+    """
+    stall = stall or STALL_SECONDS
+    cancel = cancel or (lambda: False)
+    log = Path(cwd) / f'reader-{uuid.uuid4().hex[:6]}.log'
+    with log.open('wb') as out:
+        proc = subprocess.Popen([str(a) for a in args], cwd=cwd, stdout=out, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        last_seen, last_change = None, time.time()
+        try:
+            while proc.poll() is None:
+                time.sleep(0.4)
+                if cancel():
+                    raise UpdateCancelled()
+                seen = watch() if watch else log.stat().st_size
+                if seen != last_seen:
+                    last_seen, last_change = seen, time.time()
+                elif time.time() - last_change > stall:
+                    raise ValueError(f'{label} stopped responding (no progress for {max(1, stall // 60)} minutes). '
+                                     'Close the game if it is updating, then try again. The previous library was kept.')
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
+    output = log.read_bytes().decode('utf-8', 'replace')
+    log.unlink(missing_ok=True)
+    if proc.returncode:
+        message = output[-1500:].replace(secret, '<game key>') if secret else output[-1500:]
+        raise ValueError(f'{label} failed. Check the game path and key, or update the reader if the game format changed.\n{message}')
+    return output
+
+
+def normalize_key(aes_key):
+    key = str(aes_key or DEFAULT_AES).strip()
+    if not re.fullmatch(r'(?:0x)?[0-9a-fA-F]{64}', key):
+        raise ValueError('The game key must contain 64 hexadecimal digits.')
+    return key if key.startswith('0x') else '0x' + key
+
+
 CHAR_PATH = re.compile(r'^(?:HerovsGame/Content|Game|Content)/Character/(Ch\d+)/(.+)$')
 
 
@@ -183,9 +258,10 @@ class GameUpdater:
     def __init__(self, engine, tools):
         self.engine, self.tools = engine, Path(tools)
 
-    def run(self, folder, aes_key='', progress=None, force=False):
+    def run(self, folder, aes_key='', progress=None, force=False, cancel=None):
         engine = self.engine
         progress = progress or (lambda *args: None)
+        cancel = cancel or (lambda: False)
         folder = game_folder(folder)
         paks = original_paks(folder)
         stamp = fingerprint(paks)
@@ -195,11 +271,7 @@ class GameUpdater:
                 and not force):
             return dict(cached=True, characters=len(previous['characters']), added=[], changed_assets=0,
                         text='Your installed game files are already current.')
-        key = str(aes_key or DEFAULT_AES).strip()
-        if not re.fullmatch(r'(?:0x)?[0-9a-fA-F]{64}', key):
-            raise ValueError('The game key must contain 64 hexadecimal digits.')
-        if not key.startswith('0x'):
-            key = '0x' + key
+        key = normalize_key(aes_key)
         for name in ('repak.exe', 'umodel.exe', 'SDL2.dll'):
             if not (self.tools / name).is_file():
                 raise ValueError('A bundled game reader is missing. Extract a fresh copy of the app.')
@@ -209,14 +281,8 @@ class GameUpdater:
         generation = root / generation_name
         generation.mkdir()
 
-        def run(args, cwd, label):
-            result = subprocess.run([str(a) for a in args], cwd=cwd, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, timeout=1800,
-                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-            if result.returncode:
-                message = result.stdout.decode('utf-8', 'replace')[-1500:].replace(key, '<game key>')
-                raise ValueError(f'{label} failed. Check the game path and key, or update the reader if the game format changed.\n{message}')
-            return result.stdout.decode('utf-8', 'replace')
+        def run(args, cwd, label, watch=None, stall=STALL_SECONDS):
+            return run_tool(args, cwd, label, key, cancel, watch, stall)
 
         manifest_path = engine.base / 'game-update.json'
         old_manifest = manifest_path.read_bytes() if manifest_path.is_file() else None
@@ -226,7 +292,7 @@ class GameUpdater:
                 work = Path(temporary)
                 entries = {}
                 for i, pak in enumerate(paks):
-                    progress('Reading original game archive indexes…', i, len(paks))
+                    progress(f'Reading game archive index {i + 1} of {len(paks)}…', i, len(paks))
                     output = run([self.tools / 'repak.exe', '-a', key, 'list', pak], work, 'Game index')
                     for line in output.splitlines():
                         name = line.strip().replace('\\', '/')
@@ -256,6 +322,20 @@ class GameUpdater:
                             requests[entries[part]].add(part)
                 raw = work / 'raw'
                 raw.mkdir()
+                expected = sum(1 for name, pak in entries.items() if any(
+                    glob_match(pattern, name) for pattern in requests[pak]))
+                started = time.time()
+
+                def extracted():
+                    return sum(len(f) for _, _, f in os.walk(raw))
+
+                def show(i):
+                    done = extracted()
+                    secs = int(time.time() - started)
+                    total = max(expected, done, 1)
+                    progress(f'Extracting effect files from the game: {done:,} of ~{total:,} '
+                             f'({secs // 60}:{secs % 60:02d}). The first update can take several minutes.', done, total)
+                    return done
                 for i, pak in enumerate(paks):
                     includes = sorted(requests[pak])
                     batch, budget = [], 0
@@ -269,18 +349,19 @@ class GameUpdater:
                     if batch:
                         batches.append(batch)
                     for j, batch in enumerate(batches):
-                        progress(f'Reading effects and portraits ({i + 1}/{len(paks)}, batch {j + 1}/{len(batches)})…', i, len(paks))
+                        show(i)
                         args = [self.tools / 'repak.exe', '-a', key, 'unpack', pak, '-o', raw, '-q', '-f']
                         for item in batch:
                             args.extend(('-i', item))
-                        run(args, work, 'Selective game extraction')
+                        run(args, work, 'Selective game extraction', watch=lambda: show(i))
                 progress('Decoding character pictures…', 0, 1)
                 image_stems = [PurePosixPath(p).stem for p in pictures.values()]
                 image_output = work / 'pictures'
                 args = [self.tools / 'umodel.exe', '-export', '-game=ue4.27', '-path=' + str(raw),
                         '-png', '-noanim', '-out=' + str(image_output)]
                 args.extend('-pkg=' + stem for stem in image_stems)
-                run(args, work, 'Character picture reader')
+                run(args, work, 'Character picture reader',
+                    watch=lambda: sum(len(f) for _, _, f in os.walk(image_output)) if image_output.exists() else 0)
                 image_dest = generation / 'portraits'
                 image_dest.mkdir()
                 for cid, path in pictures.items():
@@ -302,10 +383,15 @@ class GameUpdater:
                 if not set(active) <= supported:
                     raise ValueError('Some character effects use an unsupported asset format. The previous roster was kept.')
                 keep = {pkg for pkg, r in candidate.recs.items() if r.kind == 'ps' and r.char in active}
+                # every effect material of an active character, also ones the game spawns from
+                # blueprints (decals, post-process overlays, gates) that no particle system references
+                keep |= {pkg for pkg, r in candidate.recs.items()
+                         if r.kind in ('mi', 'm') and r.char in active and is_effect_asset(pkg)}
                 stack = list(keep)
                 while stack:
                     for ref in candidate.recs[stack.pop()].refs:
-                        if ref in candidate.recs and ref not in keep:
+                        if ref in candidate.recs and ref not in keep and \
+                                is_effect_asset(ref):   # no body/outfit/prop materials
                             keep.add(ref)
                             stack.append(ref)
                 baseline = Library(work / '_baseline', engine.lib.archive_path)

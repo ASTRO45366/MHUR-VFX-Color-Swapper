@@ -2,6 +2,7 @@
 import json
 import math
 import re
+import struct
 import threading
 import time
 from functools import wraps
@@ -11,9 +12,11 @@ from . import pak as pakmod
 from .credits import add_credits
 from .amount import apply_amount
 from .parts import emitter_parts
-from .library import GROUPS, GROUP_DESC, GROUP_LABEL, Library
-from .recolor import (SAT_THR, Swap, analyse, find_fields, l2s, lin_norm_to_hex,
-                      reference)
+from .library import is_effect_asset, GROUPS, GROUP_DESC, GROUP_LABEL, Library
+from .texture import DATA_NAME, TextureTint, endpoint_colors, is_color_texture, parse_texture, recolor_texture, texture_kind
+from .uasset import Asset
+from .recolor import (SAT_THR, Swap, analyse, find_fields, hex_to_rgb, l2s, lin_norm_to_hex,
+                      reference, s2l)
 
 DEFAULT_NAMES = {
     'Ch001': 'Deku', 'Ch002': 'Bakugo', 'Ch003': 'Ochaco', 'Ch004': 'Todoroki', 'Ch005': 'Iida',
@@ -49,13 +52,115 @@ def synchronized(fn):
 
 
 MAX_LEVEL = 3
-LEVEL_RE = re.compile(r'(?:^|_)L(\d)(?=_|$)')
+# _L1.._L3 (most characters), _L01.._L03, and _LVL1/_LVL4/_LVL9 (in-game skill level 1/4/9)
+LEVEL_RE = re.compile(r'(?:^|_)(L|LV|LVL|Lv|Lvl|lv|lvl)0?(\d)(?=_|$)')
 
 
 def level_steps(name):
     """How many skill levels below the maximum an effect/material is (None = no level in name)."""
     m = LEVEL_RE.search(name)
-    return max(0, MAX_LEVEL - int(m.group(1))) if m else None
+    if not m:
+        return None
+    level = int(m.group(2))
+    if m.group(1).lower() == 'lvl':  # game skill levels: 9 = max, 4..8 one step below, 1..3 two
+        return 0 if level >= 9 else 1 if level >= 4 else 2
+    return max(0, MAX_LEVEL - level)
+
+
+# Walking/running/landing dust etc. ('Other' group only, so skill and special
+# effects such as a special-move dash keep being recolored).
+MOVEMENT_WORDS = frozenset({'walk', 'run', 'running', 'step', 'steps', 'footstep', 'land', 'landing',
+                            'jump', 'dash', 'foot', 'footsmoke', 'move', 'dust', 'airwalk'})
+
+
+def is_movement(rec):
+    if rec.kind != 'ps' or rec.group != 'other':
+        return False
+    n = re.sub(r'^PS_(ef_)?(Gasha_)?Ch\d+(V\d+)?_?', '', rec.name)
+    return bool(MOVEMENT_WORDS & set(_tokens(n)))
+
+
+
+# Solid move objects (ice, stone, cracks, spikes) get their look from textures.
+# Recoloring them is optional; it is on by default only where the plain effect
+# recolor would otherwise look unfinished.
+OBJECT_DEFAULTS = {'Ch015': ('alpha', 'beta', 'gamma')}   # Shigaraki: decay cracks
+# Characters whose moves are mostly solid objects (shown as suggestions in the UI)
+OBJECT_SUGGESTED = {'Ch004', 'Ch008', 'Ch015', 'Ch034', 'Ch101'}
+
+
+def check_spans(name, old, new, spans):
+    """Texture data may only change inside its pixel (mip) data, at the same size."""
+    if len(old) != len(new):
+        raise RuntimeError(f'Safety check stopped the export: {name}: texture size changed.')
+    if old == new:
+        return
+    mask = bytearray(len(new))
+    for a, b in spans:
+        mask[a:b] = b'\x01' * (b - a)
+    for off in range(0, len(new), 4096):
+        if new[off:off + 4096] != old[off:off + 4096]:
+            for i in range(off, min(off + 4096, len(new))):
+                if new[i] != old[i] and not mask[i]:
+                    raise RuntimeError(f'Safety check stopped the export: {name}: non-pixel texture data changed.')
+
+
+BASE_SLOT = re.compile(r'^(base_?colou?r|base|diffuse|albedo|main_?tex(ture)?|colou?r_?tex(ture)?|tex_?d|d|'
+                       r'base_?colou?r_?tex(ture)?|diffuse_?tex(ture)?|albedo_?tex(ture)?|'
+                       r'emissive|emissive_?(colou?r_?)?tex(ture)?|emi_?tex|em_?tex|e)(_?\d+)?$', re.I)
+
+
+def base_color_params(asset):
+    """Texture packages plugged into a base-colour slot of a material instance."""
+    out = []
+    for ei, e in enumerate(asset.exports):
+        if e['class'] != 'MaterialInstanceConstant':
+            continue
+        for p in asset.export_props(ei):
+            if p.name != 'TextureParameterValues':
+                continue
+            for c in p.children or []:
+                d = {x.name: x for x in c.children or []}
+                info, value = d.get('ParameterInfo'), d.get('ParameterValue')
+                if not info or not value or not info.children:
+                    continue
+                name = asset.fname(asset.ux, info.children[0].vpos)
+                if BASE_SLOT.match(name):
+                    path = asset.object_path(struct.unpack_from('<i', asset.ux, value.vpos)[0])
+                    if path:
+                        out.append(path)
+    return out
+
+
+
+def objects_default(char, group):
+    return group in OBJECT_DEFAULTS.get(char, ())
+
+
+def pak_filename(name):
+    """'Red VFX' -> 'ZZZ_Red_VFX-WindowsNoEditor_P.pak'.
+
+    ZZZ makes the mod load after the game's own paks; the suffix is what the game
+    expects. Names typed with '.pak' or the suffix already are not doubled.
+    """
+    base = re.sub(r'\.pak$', '', str(name or '').strip(), flags=re.I)
+    base = re.sub(r'(-WindowsNoEditor)?(_P)?$', '', base, flags=re.I)
+    safe = re.sub(r'[^A-Za-z0-9_\-]+', '_', base).strip('_-')[:60] or 'MHUR_VFX_Recolor'
+    if safe[:3].upper() == 'ZZZ':
+        safe = 'ZZZ' + safe[3:]
+    else:
+        safe = 'ZZZ_' + safe
+    return f'{safe}-WindowsNoEditor_P.pak'
+# Team-indicator colours inside effect materials (enemy/ally warnings stay readable)
+INDICATOR_PARAM_RE = re.compile(r'enemy|ally|friend|myself|self_?colou?r|^self', re.I)
+
+
+def color_fields(asset, indicators):
+    """find_fields minus enemy/ally indicator parameters unless indicators are allowed."""
+    fs = find_fields(asset)
+    if indicators:
+        return fs
+    return [f for f in fs if not (f.kind == 'param' and INDICATOR_PARAM_RE.search(f.label))]
 
 
 def _tokens(name):
@@ -97,6 +202,7 @@ class Engine:
                 self.names.update(json.loads(nf.read_text(encoding='utf-8')))
             except Exception:
                 pass
+        self._slot_textures = set()
         self.status = {'state': 'idle', 'text': '', 'done': 0, 'total': 1}
         self._pal_cache = {}
         self._lock = threading.RLock()
@@ -230,12 +336,18 @@ class Engine:
                 'palette': pal,
                 'id': f'VFX_{char[2:]}_{key.upper()}' if key != 'all' else f'VFX_{char[2:]}_ALL',
                 'files': [r.name for r in ps][:200],
+                'object_textures': len(set().union(*(self._object_textures(r) for r in ps))) if ps else 0,
+                'objects_default': (any(objects_default(char, r.group) for r in ps) if key == 'all'
+                                    else objects_default(char, key)),
+                'objects_suggested': char in OBJECT_SUGGESTED,
             })
         return res
 
     def _selection(self, a):
+        keep = None if a.get('movement') else (lambda r: not is_movement(r))
         ps, mats = self.lib.scope_recs(a['char'], a['var'], a['group'],
-                                       bool(a.get('indicators', False)))
+                                       bool(a.get('indicators', False)), keep)
+        mats = [r for r in mats if is_effect_asset(r.pkg)]   # never character bodies, outfits or props
         parts = set((a.get('secondary') or {}).get('parts') or [])
         material_users = {}
         material_steps = {}
@@ -250,7 +362,7 @@ class Engine:
             for path in r.refs:
                 roles = {default if p == 'main' else p for p in uses.get(path, {default})}
                 material_users.setdefault(path, set()).update(roles)
-            fs = find_fields(asset)
+            fs = color_fields(asset, bool(a.get('indicators', False)))
             for f in fs:
                 roles = {default if p == 'main' else p
                          for p in module_parts.get(f.export_index, {default})}
@@ -276,7 +388,7 @@ class Engine:
         conflicts = []
         for r in mats:
             asset = self.lib.read(r)
-            fs = find_fields(asset)
+            fs = color_fields(asset, bool(a.get('indicators', False)))
             roles = material_users.get(r.pkg, {part_of(r.name)})
             if roles & parts and roles - parts:
                 conflicts.append(r.name)
@@ -322,13 +434,13 @@ class Engine:
         sec = a.get('secondary')
         return main, (float(sec.get('amount', main)) if sec else main)
 
-    def _apply_amounts(self, a, r, asset, buf):
+    def _apply_amounts(self, a, r, asset, buf, touched=None):
         """Patch spawn amounts. None = nothing requested; else number of values changed."""
         main, second = self.amounts(a)
         if main == 100 and second == 100:
             return None
         if main == second:
-            return apply_amount(asset, buf, main)
+            return apply_amount(asset, buf, main, touched=touched)
         parts = set(a['secondary'].get('parts') or [])
         module_parts, _ = emitter_parts(asset, part_of)
         default = part_of(r.name)
@@ -336,8 +448,8 @@ class Engine:
         def is_second(i):
             roles = {default if p == 'main' else p for p in module_parts.get(i, {default})}
             return bool(roles) and roles <= parts
-        changed = (apply_amount(asset, buf, main, lambda i: not is_second(i))
-                   + apply_amount(asset, buf, second, is_second))
+        changed = (apply_amount(asset, buf, main, lambda i: not is_second(i), touched)
+                   + apply_amount(asset, buf, second, is_second, touched))
         return changed or None  # nothing to scale in the targeted emitters is not an error
 
     @staticmethod
@@ -397,6 +509,11 @@ class Engine:
             raise ValueError('Character variation has no imported effect files.')
         if a.get('char') not in self.active_ids:
             raise ValueError('This character is not in the active game roster. Refresh the game files in Settings.')
+        if a.get('objects') is not None and not isinstance(a['objects'], bool):
+            raise ValueError('objects must be true or false.')
+        for key in ('movement', 'indicators', 'tint_white'):
+            if key in a and not isinstance(a[key], bool):
+                raise ValueError(f'{key} must be true or false.')
         sec = a.get('secondary')
         if sec:
             if not isinstance(sec, dict) or not re.fullmatch(r'#[0-9a-fA-F]{6}', str(sec.get('hex', ''))):
@@ -407,9 +524,183 @@ class Engine:
             if not math.isfinite(value) or not 0 <= value <= 100:
                 raise ValueError('amount must be between 0 and 100.')
 
+    # ------------------------------------------------------------ safety
+    def _check_cosmetic(self, rec, ua, buf, spans):
+        """Refuse to export anything but colour / particle-amount edits of effect assets.
+
+        Hitboxes, collision, animation, damage and movement live in blueprints, data
+        assets and animation files, which are never written. Inside the effect files
+        every changed byte must belong to a colour value or a spawn-amount value, so
+        sizes, lifetimes, velocities, locations and similar data stay untouched.
+        """
+        original = self.lib.read(rec)
+        problem = None
+        if rec.kind not in ('ps', 'mi', 'm'):
+            problem = 'unsupported asset type'
+        elif not rec.pkg.startswith('/Game/Character/'):
+            problem = 'asset outside character folders'
+        elif ua != original.ua:
+            problem = 'asset header changed'
+        elif len(buf) != len(original.ux):
+            problem = 'asset size changed'
+        else:
+            mask = bytearray(len(buf))
+            for start, end in spans:
+                mask[max(0, start):max(0, min(end, len(buf)))] = b'\x01' * max(0, min(end, len(buf)) - max(0, start))
+            old = original.ux
+            for off in range(0, len(buf), 256):
+                if buf[off:off + 256] != old[off:off + 256]:
+                    for i in range(off, min(off + 256, len(buf))):
+                        if buf[i] != old[i] and not mask[i]:
+                            problem = f'non-color data changed at byte {i}'
+                            break
+                if problem:
+                    break
+        if problem:
+            raise RuntimeError(f'Safety check stopped the export: {rec.name} ({rec.pkg}): {problem}. '
+                               'The mod would have changed more than effect colors, so no pak was written.')
+
     # ------------------------------------------------------------ export
     @synchronized
-    def build(self, assignments, name, progress=None, global_cfg=None, exclude=()):
+    def objects_enabled(self, a, char, var, group, choices):
+        """Solid-object recolor for one skill: assignment choice > saved per-skill choice > default."""
+        if a.get('objects') is not None and (a.get('group') in ('all', group)):
+            if a.get('_global') is None:
+                return bool(a['objects'])
+        key = f'{char}:{var}:{group}'
+        if key in choices:
+            return bool(choices[key])
+        return objects_default(char, group)
+
+    def _object_textures(self, rec):
+        """Colour textures used by a particle system's materials (character folders only)."""
+        out, seen, stack = set(), set(), list(rec.refs) + ([rec.pkg] if rec.kind != 'ps' else [])
+        while stack:
+            path = stack.pop()
+            if path in seen or path not in self.lib.recs:
+                continue
+            seen.add(path)
+            mrec = self.lib.recs[path]
+            if not is_effect_asset(path):
+                continue
+            stack.extend(mrec.refs)
+            try:
+                asset = self.lib.read(mrec)
+            except Exception:
+                continue
+            for n in asset.names:
+                if n.startswith('/Game/Character/') and is_effect_asset(n) and is_color_texture(n):
+                    out.add(n)
+            for n in base_color_params(asset):
+                if n.startswith('/Game/Character/') and is_effect_asset(n) and not DATA_NAME.search(n.rsplit('/', 1)[-1][2:]):
+                    out.add(n)
+                    self._slot_textures.add(n)
+        return out
+
+    def _apply_textures(self, jobs, files, report, progress):
+        """Recolor queued textures in place and add them to the pak."""
+        jobs = {k: v for k, v in jobs.items() if is_effect_asset(k)}
+        report['textures'] = 0
+        report['textures_unavailable'] = 0
+        if not jobs:
+            return
+        store = getattr(self, 'texture_store', None)
+        got = store.get(list(jobs), progress) if store else {}
+        report['textures_unavailable'] = len(jobs) - len(got)
+        report['textures_need_game'] = bool(len(got) < len(jobs) and not (store and store.available()))
+        for i, (pkg, fn) in enumerate(sorted(jobs.items())):
+            if pkg not in got:
+                continue
+            ua, ux, ub = got[pkg]
+            try:
+                info = parse_texture(Asset(ua, ux), ux, len(ub))
+            except Exception:
+                info = None
+            if not info or not info.mips:
+                report['textures_unavailable'] += 1
+                continue
+            if texture_kind(pkg) != 'color' and pkg not in self._slot_textures and not info.srgb:
+                continue   # linear data texture (mask / packed channels): never recolor
+            if progress and i % 4 == 0:
+                progress(f'Recoloring textures ({i + 1}/{len(jobs)})…', i, len(jobs))
+            hex_color, mode, intensity, second = fn
+            tint = TextureTint(hex_color, mode, intensity, endpoint_colors(info, ux, ub, 3000), info.srgb, second)
+            nux, nub, sux, sub = recolor_texture(info, ux, ub, tint)
+            check_spans(pkg, ux, nux, sux)
+            check_spans(pkg, ub, nub, sub)
+            rel = pkg.replace('/Game/', '', 1)
+            files[rel + '.uasset'] = ua
+            files[rel + '.uexp'] = nux
+            if ub:
+                files[rel + '.ubulk'] = nub
+            report['textures'] += 1
+
+    @synchronized
+    def diagnose(self, char, var, group):
+        """Plain-text report of what a skill contains and what the app recolors (for bug reports)."""
+        from .recolor import _prop_map, is_color_param
+        ps, _ = self.lib.scope_recs(char, var, group, True)
+        lines = [f'MHUR VFX Color Swapper diagnostic report', f'Skill: {char} {var} {group}', '']
+        seen = set()
+        for r in sorted(ps, key=lambda r: r.name):
+            flags = []
+            if is_movement(r):
+                flags.append('walking dust')
+            if r.indicator:
+                flags.append('indicator')
+            lines.append(f'PS {r.name}  [group {r.group}{", " + ", ".join(flags) if flags else ""}]')
+            try:
+                fields = find_fields(self.lib.read(r))
+                kinds = {}
+                for f in fields:
+                    kinds[f.kind] = kinds.get(f.kind, 0) + 1
+                lines.append(f'   particle colour fields: {kinds or "none"}')
+            except Exception as exc:
+                lines.append(f'   (could not read: {exc})')
+            stack = list(r.refs)
+            while stack:
+                path = stack.pop()
+                if path in seen:
+                    continue
+                seen.add(path)
+                leaf = path.rsplit('/', 1)[-1]
+                if path not in self.lib.recs:
+                    lines.append(f'   material {leaf}: NOT IN LIBRARY ({path})')
+                    continue
+                mrec = self.lib.recs[path]
+                stack.extend(mrec.refs)
+                asset = self.lib.read(mrec)
+                found = {f.label for f in find_fields(asset)}
+                lines.append(f'   material {leaf}')
+                for ei, e in enumerate(asset.exports):
+                    if e['class'] != 'MaterialInstanceConstant':
+                        continue
+                    for p in asset.export_props(ei):
+                        if p.name == 'VectorParameterValues':
+                            for c in p.children or []:
+                                d = _prop_map(c.children)
+                                name = asset.fname(asset.ux, d['ParameterInfo'].children[0].vpos)
+                                val = struct.unpack_from('<4f', asset.ux, d['ParameterValue'].vpos)
+                                mark = 'RECOLORED' if name in found else 'kept'
+                                lines.append(f'      vector {name} = ({", ".join(f"{x:.3g}" for x in val)})  {mark}')
+                        if p.name == 'TextureParameterValues':
+                            for c in p.children or []:
+                                d = _prop_map(c.children)
+                                name = asset.fname(asset.ux, d['ParameterInfo'].children[0].vpos)
+                                tex = asset.object_path(struct.unpack_from('<i', asset.ux, d['ParameterValue'].vpos)[0])
+                                lines.append(f'      texture slot {name} = {tex}')
+                for f in find_fields(asset):
+                    if f.label.endswith('(default)'):
+                        lines.append(f'      default {f.label}  RECOLORED')
+                for n in asset.names:
+                    if '/T_' in n and n.startswith('/Game/'):
+                        kind = texture_kind(n) or ('slot' if n in self._slot_textures else '-')
+                        lines.append(f'      uses texture {n.rsplit("/", 1)[-1]}  [{kind}]  {n}')
+            lines.append('')
+        lines.append(f'Solid-object textures for this skill: {len(set().union(*(self._object_textures(r) for r in ps))) if ps else 0}')
+        return '\n'.join(lines)
+
+    def build(self, assignments, name, progress=None, global_cfg=None, exclude=(), objects=None, compress=False):
         assignments = list(assignments)
         if global_cfg:
             base = []
@@ -417,7 +708,7 @@ class Engine:
                 if cid in exclude or cid not in self.active_ids:
                     continue
                 for var in sorted(vars_):
-                    base.append(dict(global_cfg, char=cid, var=var, group='all'))
+                    base.append(dict(global_cfg, char=cid, var=var, group='all', _global=True))
             assignments = base + assignments
         assignments = [a for a in assignments if a.get('char') not in exclude]
         for a in assignments:
@@ -429,23 +720,41 @@ class Engine:
                                              for a in assignments)}
         missing, common = set(), set()
         swapped, touched = {}, {}
+        allowed = {}   # pkg -> byte ranges the export may change (colour fields + spawn values)
+        choices = {k: bool(v) for k, v in (objects or {}).items() if isinstance(k, str)}
+        tex_jobs = {}  # texture pkg -> colour function (later assignments win, like effects)
+        report['movement_skipped'] = 0
         total = max(1, len(assignments))
         for ai, a in enumerate(assignments):
             if a['char'] in exclude:
                 continue
             selected, conflicts = self._selection(a)
             report['two_color_shared'].extend(conflicts)
+            if not a.get('movement'):
+                report['movement_skipped'] += sum(
+                    1 for r in self.lib.scope_recs(a['char'], a['var'], a['group'], True)[0] if is_movement(r))
             ps = [r for r, _, _ in selected if r.kind == 'ps']
             mats = [r for r, _, _ in selected if r.kind != 'ps']
             sp, ss = self._swaps(a, *self._selected_entries(selected))
+            if a.get('mode') != 'original':
+                for r in ps + [m for m in mats if m.orphan]:
+                    groups = [r.group] if r.kind == 'ps' else sorted(r.groups)
+                    if any(self.objects_enabled(a, a['char'], a['var'], g, choices) for g in groups):
+                        second = (a.get('secondary') or {}).get('hex')
+                        for tex in self._object_textures(r):
+                            tex_jobs[tex] = (a['hex'], a.get('mode', 'unify'), float(a.get('intensity', 1)), second)
             for r, asset, fields in selected:
                 # continue from an earlier assignment's patch of the same asset
                 buf = bytearray(patched[r.pkg][2]) if r.pkg in patched else bytearray(asset.ux)
+                spans = allowed.setdefault(r.pkg, set())
                 for f in fields:
                     f.apply(buf, self.field_swap(a, f, sp, ss))
+                    spans.update(f.spans(asset.ux))
                     report['secondary_fields'] += int(f.secondary)
                 if r.kind == 'ps':
-                    done = self._apply_amounts(a, r, asset, buf)
+                    edited = set()
+                    done = self._apply_amounts(a, r, asset, buf, edited)
+                    spans.update((pos, pos + n) for pos, n in edited)
                     if done:
                         report['amount_assets'] += 1
                     elif done is not None:
@@ -461,32 +770,42 @@ class Engine:
             for r in ps:
                 for p in r.refs:
                     if p not in self.lib.recs:
-                        (common if p.startswith('/Game/Effect/Common') else missing).add(p.rsplit('/', 1)[-1])
+                        leaf = p.rsplit('/', 1)[-1]
+                        if not re.search(r'(^|_)ef_', leaf):
+                            continue  # character body / engine default materials: never recolored
+                        (common if '/Character/' not in p else missing).add(leaf)
             if progress:
                 progress(ai + 1, total)
         for pkg, r in touched.items():
             outside = r.groups - swapped.get((r.char, r.var), set())
             if outside:
                 report['shared'].append(f"{r.name} (also used by {', '.join(GROUP_LABEL[g] for g in sorted(outside))})")
+        report['skipped_non_effect'] = []
+        for pkg in [p for p, (r, _, _) in patched.items() if r.kind != 'ps' and not is_effect_asset(p)]:
+            # a character model / outfit / prop material reached through an effect: leave it out
+            report['skipped_non_effect'].append(patched.pop(pkg)[0].name)
+        for pkg, (r, ua, buf) in patched.items():
+            self._check_cosmetic(r, ua, buf, allowed.get(pkg, ()))
         files = {}
         for pkg, (r, ua, buf) in patched.items():
             path = pkg.replace('/Game/', '', 1)
             files[path + '.uasset'] = ua
             files[path + '.uexp'] = buf
+        self._apply_textures(tex_jobs, files, report,
+                             (lambda t, i, n: progress(i, max(n, 1), t)) if progress else None)
         report['two_color_shared'] = sorted(set(report['two_color_shared']))
         report['amount_unsupported'] = sorted(set(report['amount_unsupported']))
         report['missing'] = sorted(missing)[:40]
         report['missing_count'] = len(missing)
         report['common_count'] = len(common)
-        report['assets'] = len(files) // 2
+        report['assets'] = len(patched)
         report['characters'] = len({r.char for (r, ua, b) in patched.values()})
         report['shared'] = sorted(set(report['shared']))[:30]
         if not files:
             return None, report
         add_credits(files)
-        safe = re.sub(r'[^A-Za-z0-9_\-]+', '_', name).strip('_') or 'MHUR_VFX_Recolor'
-        out = self.exports / f'{safe}-WindowsNoEditor_P.pak'
-        pakmod.write_pak(out, MOUNT, files)
+        out = self.exports / pak_filename(name)
+        pakmod.write_pak(out, MOUNT, files, compress)
         report['file'] = out.name
         report['size'] = out.stat().st_size
         return out, report

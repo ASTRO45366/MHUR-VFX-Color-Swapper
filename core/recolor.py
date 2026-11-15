@@ -7,7 +7,23 @@ import struct
 from .uasset import Asset
 
 DIST_NAMES = {'ColorOverLife', 'ColorScaleOverLife', 'StartColor'}
-PARAM_RE = re.compile(r'colou?r|^EM$|hdr|tint|emis|gradation', re.I)
+PARAM_RE = re.compile(r'colou?r|^EM$|hdr|tint|emis|gradation|fresnel|magma|^EM_|_EM$|^C\d$', re.I)
+# Generic names some materials use for a colour; accepted only when the value looks like one.
+GENERIC_RE = re.compile(r'^Param\d*$|lava|heat|burn|vein|glow|crack', re.I)
+
+
+def looks_like_color(v):
+    """Chromatic/non-mask RGB (not an axis like (0,0,1) or a channel mask)."""
+    r, g, b = v[:3]
+    if any(x < 0 for x in (r, g, b)) or max(r, g, b) <= 0:
+        return False
+    return not all(x in (0.0, 1.0) for x in (r, g, b))
+
+
+def is_color_param(name, value=None):
+    if PARAM_RE.search(name):
+        return True
+    return bool(value is not None and GENERIC_RE.search(name) and looks_like_color(value))
 INDICATOR_RE = re.compile(r'enemy|friend|signarea|ally', re.I)
 SAT_THR = 0.12
 
@@ -149,6 +165,15 @@ class DistField:
             return [a] if a == b else [a, b]
         return []
 
+    def spans(self, buf):
+        """Byte ranges this field may change (used by the cosmetic-only safety check)."""
+        out = []
+        if self.tab is not None:
+            out.append((self.tab + 4, self.tab + 4 + 4 * max(0, struct.unpack_from('<i', buf, self.tab)[0])))
+        out += [(p, p + 12) for p in (self.minv, self.maxv) if p is not None]
+        out += [(p, p + 4) for p in (self.smin, self.smax) if p is not None]
+        return out
+
     def apply(self, buf, fn):
         if self.tab is not None:
             cnt = struct.unpack_from('<i', buf, self.tab)[0]
@@ -180,9 +205,56 @@ class ParamField:
     def entries(self, buf):
         return [struct.unpack_from('<3f', buf, self.pos)]
 
+    def spans(self, buf):
+        return [(self.pos, self.pos + 12)]
+
     def apply(self, buf, fn):
         c = fn(struct.unpack_from('<3f', buf, self.pos))
         struct.pack_into('<3f', buf, self.pos, *c)
+
+
+class GpuColorField:
+    """GPU sprite emitter colour baked into ParticleModuleTypeDataGpu.ResourceData.
+
+    In game the colour is QuantizedColorSamples (FColor, BGRA) * ColorScale + ColorBias;
+    the CPU ColorOverLife modules are not evaluated for GPU emitters.
+    """
+    kind = 'gpu'
+
+    def __init__(self, label, samples_pos, count, scale_pos, bias_pos):
+        self.label, self.samples, self.count = label, samples_pos, count
+        self.scale_pos, self.bias_pos = scale_pos, bias_pos
+
+    def _decode(self, buf):
+        sc = struct.unpack_from('<3f', buf, self.scale_pos)
+        bi = struct.unpack_from('<3f', buf, self.bias_pos)
+        out = []
+        for i in range(self.count):
+            b, g, r, _a = buf[self.samples + 4 * i:self.samples + 4 * i + 4]
+            out.append(tuple(q / 255.0 * s + o for q, s, o in zip((r, g, b), sc, bi)))
+        return out or [tuple(bi)]
+
+    def entries(self, buf):
+        return self._decode(buf)
+
+    def spans(self, buf):
+        return [(self.samples, self.samples + 4 * self.count),
+                (self.scale_pos, self.scale_pos + 12), (self.bias_pos, self.bias_pos + 12)]
+
+    def apply(self, buf, fn):
+        old = self._decode(buf)
+        new = [tuple(max(0.0, x) for x in fn(c)) for c in old]
+        if all(abs(a - b) < 1e-7 for o, n in zip(old, new) for a, b in zip(o, n)):
+            return  # unchanged colours: keep the original bytes (no requantisation noise)
+        lo = [min(c[k] for c in new) for k in range(3)]
+        hi = [max(c[k] for c in new) for k in range(3)]
+        span = [h - l for h, l in zip(hi, lo)]
+        for i, c in enumerate(new[:self.count]):
+            q = [0 if span[k] <= 1e-9 else max(0, min(255, round((c[k] - lo[k]) / span[k] * 255))) for k in range(3)]
+            p = self.samples + 4 * i
+            buf[p], buf[p + 1], buf[p + 2] = q[2], q[1], q[0]   # BGRA, alpha kept
+        struct.pack_into('<3f', buf, self.scale_pos, *span)
+        struct.pack_into('<3f', buf, self.bias_pos, *lo)
 
 
 def _prop_map(props):
@@ -210,6 +282,18 @@ def find_fields(asset: Asset):
                                          d['MaxValueVec'].vpos if 'MaxValueVec' in d else None,
                                          d['MinValue'].vpos if 'MinValue' in d else None,
                                          d['MaxValue'].vpos if 'MaxValue' in d else None))
+        elif cls == 'ParticleModuleTypeDataGpu':
+            for p in asset.export_props(ei):
+                if p.name != 'ResourceData' or not p.children:
+                    continue
+                d = _prop_map(p.children)
+                qs, sc, bi = d.get('QuantizedColorSamples'), d.get('ColorScale'), d.get('ColorBias')
+                if not (qs and sc and bi and isinstance(qs.value, tuple)):
+                    continue
+                count, data, size = qs.value
+                if count < 0 or size != count * 4:
+                    continue
+                out.append(GpuColorField(f'{e["name"]}.GPU', data, count, sc.vpos, bi.vpos))
         elif cls == 'MaterialInstanceConstant':
             for p in asset.export_props(ei):
                 if p.name == 'VectorParameterValues' and p.children:
@@ -221,7 +305,7 @@ def find_fields(asset: Asset):
                         if not info:
                             continue
                         name = asset.fname(buf, info[0].vpos)
-                        if PARAM_RE.search(name):
+                        if is_color_param(name, struct.unpack_from('<3f', buf, d['ParameterValue'].vpos)):
                             out.append(ParamField(name, d['ParameterValue'].vpos))
         elif cls == 'Material':
             for p in asset.export_props(ei):
@@ -247,7 +331,7 @@ def find_fields(asset: Asset):
                     continue
                 for i, ch in enumerate(infos.children):
                     nm = ch.children and asset.fname(buf, ch.children[0].vpos)
-                    if nm and PARAM_RE.search(nm):
+                    if nm and is_color_param(nm, struct.unpack_from('<3f', buf, q + i * 16)):
                         out.append(ParamField(nm + ' (default)', q + i * 16))
         for field in out[first:]:
             field.export_index = ei

@@ -14,7 +14,29 @@ from .recolor import INDICATOR_RE, find_fields
 from .uasset import Asset
 
 PKG_RE = re.compile(r'^/Game/Character/(Ch\d+)(?:/Variation/(Var\d+))?/(.*)$')
-KEEP_PREFIX = ('PS_', 'MI_', 'M_', 'MII_')
+KEEP_PREFIX = ('PS_', 'MI_', 'M_', 'MII_', 'PP_ef', 'PPI_ef')
+
+# Character model / outfit / prop / master materials: never recolored (an effect
+# that reuses them would recolor the character itself, or every character).
+NON_EFFECT_DIR = re.compile(r'/(Model|Models|Option|Options|Costume|Costumes|Weapon|Weapons|Prop|Props|Body|Face|Hair|'
+                            r'Master_Material|MasterMaterial|Master)/', re.I)
+EFFECT_DIR = re.compile(r'/(Effect|Effects|VFX|FX|Particle|Particles)/', re.I)
+EFFECT_NAME = re.compile(r'^(PS_|(MI|MII|M|PP|PPI|T)_ef_)', re.I)
+
+
+def is_effect_asset(pkg):
+    """True for effect files (particle systems, effect materials and textures).
+
+    Particle systems are always effects. Effect-named materials/textures (`MI_ef_…`,
+    `T_ef_…`) are effects wherever they are stored. Anything else counts only when it
+    is in an effect folder and not in a model / outfit / prop / master-material folder.
+    """
+    leaf = pkg.rsplit('/', 1)[-1]
+    if EFFECT_NAME.match(leaf):
+        return True
+    if NON_EFFECT_DIR.search(pkg):
+        return False
+    return bool(EFFECT_DIR.search(pkg))
 
 GROUPS = [
     ('basic', 'Basic Attack', 'Normal combo and finishing attack effects'),
@@ -43,9 +65,19 @@ def classify(name):
     return 'other'
 
 
+def material_family(name):
+    """'MI_ef_Ch103_gate_mask_08_U3_01_CustomDepth' -> 'MI_ef_Ch103_gate_mask'."""
+    base = re.sub(r'^(MII|MI|M|PPI|PP)_', '', name)
+    prev = None
+    while prev != base:
+        prev = base
+        base = re.sub(r'_(\d+|U\d+|tr|CustomDepth|F|BF|L\d+|LV\d+|LVL\d+|Myself|ma|test)$', '', base, flags=re.I)
+    return base
+
+
 class Rec:
     __slots__ = ('pkg', 'ua', 'ux', 'kind', 'char', 'var', 'name', 'group', 'refs',
-                 'fields', 'indicator', 'groups', 'ind_only', 'ent', 'nfields')
+                 'fields', 'indicator', 'groups', 'ind_only', 'ent', 'nfields', 'orphan')
 
     def __init__(self):
         self.refs = set()
@@ -56,6 +88,7 @@ class Rec:
         self.ind_only = False
         self.ent = None
         self.nfields = 0
+        self.orphan = False
 
 
 class Library:
@@ -166,7 +199,7 @@ class Library:
                 r.ua, r.ux = ('update', r.ua), ('update', r.ux)
                 self.recs[r.pkg] = r
             self._update_reader = reader
-        cfile = self.root.parent / 'cache' / 'scan-v2.json'
+        cfile = self.root.parent / 'cache' / 'scan-v3.json'
         try:
             cache = json.loads(cfile.read_text(encoding='utf-8'))
         except (OSError, ValueError):
@@ -213,8 +246,8 @@ class Library:
             r.char, r.var = m.group(1), m.group(2) or 'base'
             r.name = pkg.rsplit('/', 1)[1]
             r.kind = ('ps' if r.name.startswith('PS_') else
-                      'mi' if r.name.startswith(('MI_', 'MII_')) else
-                      'm' if r.name.startswith('M_') else 'other')
+                      'mi' if r.name.startswith(('MI_', 'MII_', 'PPI_ef')) else
+                      'm' if r.name.startswith(('M_', 'PP_ef')) else 'other')
             if r.kind == 'other':
                 return None
             r.fields = []          # recomputed on demand (keeps cache small)
@@ -251,6 +284,24 @@ class Library:
             r = self.recs[pkg]
             r.groups = {g for (_, _, g, _) in u}
             r.ind_only = all(ind for (_, _, _, ind) in u)
+        # Effect materials no particle system uses: ground decals, post-process
+        # overlays and meshes the game spawns from blueprints (e.g. Shigaraki's
+        # decay cracks, Kurogiri's gate). Give them a skill from their name, else
+        # from their material family, else Other (included by All Effects).
+        families = defaultdict(set)
+        for pkg in users:
+            r = self.recs[pkg]
+            families[(r.char, r.var, material_family(r.name))] |= r.groups
+        for pkg, r in self.recs.items():
+            if r.kind not in ('mi', 'm') or pkg in users or not is_effect_asset(pkg):
+                continue
+            g = classify(r.name)
+            if g in ('basic', 'alpha', 'beta', 'gamma', 'special'):
+                r.groups = {g}
+            else:
+                r.groups = set(families.get((r.char, r.var, material_family(r.name))) or {'other'})
+            r.orphan = True
+            r.ind_only = bool(INDICATOR_RE.search(r.name))
 
     # ------------------------------------------------------------- queries
     def characters(self):
@@ -260,11 +311,12 @@ class Library:
                 out[r.char][r.var] += 1
         return out
 
-    def scope_recs(self, char, var, group, include_indicators):
+    def scope_recs(self, char, var, group, include_indicators, keep=None):
         """PS + material recs affected by a swap of (char, var, group|'all')."""
         ps = [r for r in self.recs.values() if r.kind == 'ps' and r.char == char and r.var == var
               and (group == 'all' or r.group == group)
-              and (include_indicators or not r.indicator)]
+              and (include_indicators or not r.indicator)
+              and (keep is None or keep(r))]
         mats = {}
         stack = [p for r in ps for p in r.refs]
         while stack:
@@ -276,6 +328,19 @@ class Library:
                 continue
             mats[p] = m
             stack.extend(m.refs)
+        if True:
+            for p, m in self.recs.items():
+                if (m.orphan and m.char == char and m.var == var and p not in mats
+                        and (group == 'all' or group in m.groups)
+                        and (include_indicators or not m.ind_only)):
+                    mats[p] = m
+                    stack.extend(m.refs)
+            while stack:
+                p = stack.pop()
+                if p in mats or p not in self.recs:
+                    continue
+                mats[p] = self.recs[p]
+                stack.extend(self.recs[p].refs)
         return ps, list(mats.values())
 
     def read(self, rec):

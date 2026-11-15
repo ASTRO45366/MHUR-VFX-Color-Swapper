@@ -75,14 +75,29 @@ def read_pak(path):
     return mount, out
 
 
-def write_pak(path, mount, files):
-    """files: {relative_path: bytes}. Writes v3 zlib pak."""
+def write_pak(path, mount, files, compress=False):
+    """files: {relative_path: bytes}. Writes a v3 pak.
+
+    Uncompressed by default: the game then reads effects and textures straight from
+    the file instead of decompressing them during a match (better frame rate,
+    larger file). compress=True writes zlib blocks like most mod tools.
+    """
     target = Path(path)
     fd, temporary = tempfile.mkstemp(dir=target.parent, prefix='.' + target.name, suffix='.tmp')
     try:
         with os.fdopen(fd, 'wb') as stream:
             index = bytearray(_wstr(mount) + struct.pack('<i', len(files)))
             for name, data in files.items():
+                if not compress:
+                    sha = hashlib.sha1(data).digest()
+                    base = stream.tell()
+
+                    def plain(offset, data=data, sha=sha):
+                        return struct.pack('<QQQI', offset, len(data), len(data), 0) + sha + struct.pack('<BI', 0, 0)
+                    stream.write(plain(0))
+                    stream.write(data)
+                    index += _wstr(name) + plain(base)
+                    continue
                 blocks = [data[i:i + BLOCK] for i in range(0, len(data), BLOCK)] or [b'']
                 compressed = [zlib.compress(block, 9) for block in blocks]
                 csize = sum(map(len, compressed))

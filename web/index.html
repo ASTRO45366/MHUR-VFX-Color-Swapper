@@ -143,9 +143,22 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
 .steps{color:var(--txt);font-size:13px;line-height:1.6;margin-top:12px}
 .steps code{background:var(--input);padding:1px 6px;border-radius:5px;font-size:12px}
 .mrow{display:flex;gap:10px;margin-top:18px}
-.mrow .btn{padding:10px 12px;flex:1;display:flex;align-items:center;justify-content:center;text-align:center;min-height:48px;margin:0;font-size:12px;letter-spacing:.9px;line-height:1.2}
+.mrow{align-items:stretch}.mrow .btn{box-sizing:border-box;height:48px;vertical-align:top;padding:10px 12px;flex:1;display:flex;align-items:center;justify-content:center;text-align:center;min-height:48px;margin:0;font-size:12px;letter-spacing:.9px;line-height:1.2}
 
 /* ---------- v2.3 layout ---------- */
+.done{display:flex;gap:14px;align-items:center}
+.done .ok{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:22px;font-weight:900;color:#fff;background:linear-gradient(135deg,#2fc77a,#1f9e5f);flex:none}
+.file{margin:16px 0 4px;padding:10px 12px;border-radius:10px;background:var(--input);border:1px solid var(--line);font-size:12.5px;overflow-wrap:anywhere}
+.note{margin-top:10px;font-size:13px;line-height:1.5;padding:10px 12px;border-radius:10px;background:var(--surface)}
+.det{margin-top:12px;font-size:12.5px;color:var(--mut)}.det summary{cursor:pointer;color:var(--txt);font-weight:600}
+.det>div{margin-top:8px;line-height:1.5}.det ul{margin:4px 0 0;padding-left:18px}
+.btnrow .btn.main{margin:0;padding:11px 6px;font-size:11.5px;letter-spacing:.8px;box-shadow:none}
+.btn.all{margin-top:8px;padding:8px;font-size:11.5px;font-weight:600;letter-spacing:.2px;background:transparent;border:1px dashed var(--line2);color:var(--mut)}
+.btn.all:not(:disabled):hover{color:var(--txt);border-color:var(--acc)}
+.pakname{font-size:10.5px;color:var(--mut);margin:-6px 2px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lcancel{margin-top:16px;width:auto;padding:8px 22px}
+.gone{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:var(--modal-overlay);backdrop-filter:blur(4px)}
+.gone>div{background:var(--panel);border:1px solid var(--line2);border-radius:18px;padding:28px;max-width:420px;text-align:center}
 .sec{border:1px solid var(--line);border-radius:var(--r);background:color-mix(in srgb,var(--card) 55%,transparent);margin-top:12px;padding:0 12px 12px}
 .sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 0 10px;font-size:12px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--txt);user-select:none}
 .sec>summary::-webkit-details-marker{display:none}
@@ -265,6 +278,7 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
       </div>
       </details>
 
+      <button type="button" class="link" id="diagBtn" style="margin:6px 2px 0;font-size:11.5px" hidden>Colors not changing? Save a report for the developer…</button>
       <details class="sec" open data-sec="color"><summary><span class="num">3</span>Color<span class="sumv"><i class="dotv" id="sumColor"></i></span></summary>
       <div class="picker">
         <div id="sv" tabindex="0" role="slider" aria-label="Saturation and brightness" title="Arrow keys adjust saturation / brightness"><div id="svk"></div></div>
@@ -307,6 +321,8 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
           <small class="hint2">Max level gets your exact color; levels 1–2 get a slightly different shade.</small></div>
         <label class="chk sw2"><input type="checkbox" id="white" checked><span>Tint white cores<small>Off keeps white highlights white</small></span></label>
         <label class="chk sw2"><input type="checkbox" id="ind"><span>Recolor area indicators<small>Off keeps enemy/friend warnings readable</small></span></label>
+        <label class="chk sw2"><input type="checkbox" id="move"><span>Recolor walking dust<small>Off keeps run / walk / landing dust under characters original</small></span></label>
+        <label class="chk sw2" id="objRow" hidden><input type="checkbox" id="objects"><span>Recolor solid objects<small id="objHint">Ice, stone, cracks, spikes — recolors the move's own textures</small></span></label>
       </details>
 
       <details class="sec" open data-sec="amount"><summary><span class="num">5</span>Particles<span class="sumv" id="sumAmt"></span></summary>
@@ -336,19 +352,20 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
       </details>
     </div>
     <div class="actions">
-      <input class="modname" id="modname" placeholder="Pak name (e.g. RedVFX_All)" aria-label="Pak name" maxlength="60">
-      <button class="btn main" id="genAll" disabled title="Your color for every character, plus the overrides below">GENERATE PAK — ALL CHARACTERS</button>
+      <input class="modname" id="modname" placeholder="Pak name (e.g. RedVFX)" aria-label="Pak name" maxlength="60">
+      <div class="pakname" id="pakname"></div>
       <div class="btnrow">
-        <button class="btn sec" id="apply" disabled title="Give the selected effect its own color in the pak">＋ ADD OVERRIDE</button>
-        <button class="btn sec" id="export" disabled title="A pak with only your overrides">OVERRIDES ONLY</button>
+        <button class="btn main" id="apply" disabled title="Give the selected effect its own color in the pak">＋ ADD OVERRIDE</button>
+        <button class="btn sec" id="export" disabled title="Export a pak with only your overrides">EXPORT OVERRIDES</button>
       </div>
+      <button class="btn all" id="genAll" disabled title="Your color for every character, plus your overrides — asks first">Generate pak for ALL characters…</button>
     </div>
   </aside>
 
   <main>
     <div class="top" id="top"></div>
     <div class="scroll" id="scroll"></div>
-    <div class="center" id="loading"><div><div class="spin"></div><div id="ltxt">Loading character assets…</div><div class="bar"><i id="lbar"></i></div></div></div>
+    <div class="center" id="loading"><div><div class="spin"></div><div id="ltxt" style="max-width:460px;line-height:1.5">Loading character assets…</div><div class="bar"><i id="lbar"></i></div><button class="btn sec" id="lcancel" hidden>Cancel game update</button></div></div>
   </main>
 </div>
 
@@ -371,6 +388,7 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
  <div class="theme-sample" aria-hidden="true"><i style="background:var(--card2)"></i><i style="background:var(--selected)"></i><i style="background:var(--acc)"></i><i style="background:var(--acc2)"></i></div>
  <label class="chk"><input type="checkbox" id="compactUI"><span>Compact layout<small>Smaller cards and controls, with more room for effects.</small></span></label>
  <label class="chk"><input type="checkbox" id="reduceMotion"><span>Reduce animations<small>Keep the interface still while you work.</small></span></label>
+ <label class="chk"><input type="checkbox" id="compressPaks"><span>Compress exported paks<small>Smaller files, but the game must decompress effects and textures while you play, which can lower FPS. Off is recommended.</small></span></label>
  <p id="settingsSaved" role="status">Changes save automatically.</p>
  <section class="game-settings" aria-labelledby="gameSettingsTitle">
  <h3 id="gameSettingsTitle">Game updates</h3>
@@ -386,7 +404,7 @@ main{position:relative;display:flex;flex-direction:column;min-width:0;min-height
  <p id="gameUpdateInfo" role="status">Loading game update information…</p>
  <p>If a future patch changes the archive format or key, the previous working roster is kept.</p>
  </section>
- <p>Version 2.3 · Public edition</p>
+ <p>Version 2.6.3 · Public edition</p>
 </dialog>
 
 <script>
@@ -395,7 +413,7 @@ const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>
 const S={chars:[],char:null,vari:'base',groups:[],group:null,color:{h:0.0230,s:0.8408,v:0.9608},queue:[],ready:false,previews:{},excl:new Set()};
 const api=async(u,o)=>{const r=await fetch(u,o);const j=await r.json();if(!r.ok)throw new Error(j.error||r.statusText);return j};
 const post=(u,b)=>api(u,{method:'POST',body:JSON.stringify(b)});
-let prefs={theme:'midnight',compact:false,reduce_motion:false,game_folder:'',game_aes:'',auto_game_update:true},saveTimer;
+let prefs={theme:'midnight',compact:false,reduce_motion:false,game_folder:'',game_aes:'',auto_game_update:true,compress_paks:false},saveTimer;
 const systemAppearance=window.matchMedia('(prefers-color-scheme: light)');
 function applyPrefs(next){
  prefs={...prefs,...next};
@@ -403,7 +421,7 @@ function applyPrefs(next){
  document.documentElement.dataset.compact=String(prefs.compact);
  document.documentElement.dataset.motion=prefs.reduce_motion?'reduced':'normal';
  $('#gamePath').value=prefs.game_folder||'';$('#gameAES').value=prefs.game_aes||'';$('#autoGame').checked=prefs.auto_game_update!==false;
- $('#themeChoice').value=prefs.theme;$('#compactUI').checked=prefs.compact;$('#reduceMotion').checked=prefs.reduce_motion;
+ $('#themeChoice').value=prefs.theme;$('#compactUI').checked=prefs.compact;$('#reduceMotion').checked=prefs.reduce_motion;$('#compressPaks').checked=!!prefs.compress_paks;
 }
 systemAppearance.addEventListener('change',()=>{if(prefs.theme==='system')applyPrefs(prefs)});
 const prefsReady=api('/api/settings').then(applyPrefs).catch(()=>{$('#settingsSaved').textContent='Settings could not be loaded.'});
@@ -411,11 +429,11 @@ $('#settingsOpen').onclick=()=>{$('#settingsDialog').showModal();loadGameInfo()}
 $('#settingsClose').onclick=()=>$('#settingsDialog').close();
 $('#settingsDialog').addEventListener('click',e=>{if(e.target===$('#settingsDialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close()}});
 function changePrefs(){
- applyPrefs({theme:$('#themeChoice').value,compact:$('#compactUI').checked,reduce_motion:$('#reduceMotion').checked});
+ applyPrefs({theme:$('#themeChoice').value,compact:$('#compactUI').checked,reduce_motion:$('#reduceMotion').checked,compress_paks:$('#compressPaks').checked});
  $('#settingsSaved').textContent='Saving…';clearTimeout(saveTimer);
  saveTimer=setTimeout(async()=>{try{await post('/api/settings',prefs);$('#settingsSaved').textContent='Saved on this computer.'}catch(e){$('#settingsSaved').textContent='Could not save: '+e.message}},180);
 }
-['themeChoice','compactUI','reduceMotion'].forEach(id=>$('#'+id).addEventListener('change',changePrefs));
+['themeChoice','compactUI','reduceMotion','compressPaks'].forEach(id=>$('#'+id).addEventListener('change',changePrefs));
 async function loadGameInfo(){
  try{const info=await api('/api/game/status');if(!$('#gamePath').value&&info.detected_folder)$('#gamePath').value=info.detected_folder;
  $('#gameUpdateInfo').textContent=info.state==='error'?info.text:info.last_update?`Last refresh: ${info.last_update} · ${info.characters} characters${info.changed?' · New game files detected':''}`:'Set the game folder, then read its character pictures and effects.';
@@ -429,7 +447,7 @@ async function saveGamePrefs(){
 $('#detectGame').onclick=async()=>{const info=await api('/api/game/status');if(info.detected_folder){$('#gamePath').value=info.detected_folder;await saveGamePrefs();$('#gameUpdateInfo').textContent='Game folder found. Press Update from game files to read its characters.'}else $('#gameUpdateInfo').textContent='Could not find MHUR automatically. Paste its installation folder above.'};
 $('#updateGame').onclick=async()=>{
  try{const values=await saveGamePrefs(),force=$('#forceGame').checked;$('#settingsDialog').close();busy('Reading installed game files…',0);
- const {job}=await post('/api/game/update',{...values,force});const result=await waitJob(job,'Updating character data…');
+ const {job}=await post('/api/game/update',{...values,force});const result=await waitJob(job,'Updating character data…',true);$('#lcancel').textContent='Cancel game update';
  S.char=null;S.group=null;S.groups=[];S.previews={};S.queue=S.queue.filter(a=>!result.removed?.includes(a.char));await refresh();idle();render();
  toast(`${result.text} ${result.characters} characters${result.added?.length?' · '+result.added.length+' added':''}`);await loadGameInfo();
  }catch(e){idle();$('#gameUpdateInfo').textContent=e.message;toast(e.message,true)}
@@ -446,9 +464,20 @@ function ask(title,label,value='',placeholder=''){return new Promise(done=>{
   $('#mbox form').onsubmit=e=>{e.preventDefault();close(i.value.trim()||null)};$('#askNo').onclick=()=>close(null)})}
 let modalClose=null;
 function closeModal(){if(modalClose)modalClose();else{$('#modal').classList.remove('open');document.activeElement?.blur?.()}}
-function busy(txt,p){$('#loading').style.display='grid';$('#ltxt').textContent=txt;$('#lbar').style.width=(p==null?0:p*100)+'%'}
-function idle(){$('#loading').style.display='none'}
-setInterval(()=>fetch('/api/ping').catch(()=>{}),4000);fetch('/api/ping');
+function busy(txt,p,cancellable){$('#loading').style.display='grid';$('#ltxt').textContent=txt;$('#lbar').style.width=(p==null?0:p*100)+'%';$('#lcancel').hidden=!cancellable}
+function idle(){$('#loading').style.display='none';$('#lcancel').hidden=true}
+$('#diagBtn').onclick=async()=>{if(!S.group)return;try{const r=await post('/api/diagnose',{char:S.char.id,var:S.vari,group:S.group.key});
+  toast('Report saved as '+r.file+' in the exports folder — send it to the developer');post('/api/open_exports',{}).catch(()=>{})}catch(e){toast(e.message,true)}};
+$('#lcancel').onclick=()=>{$('#lcancel').textContent='Cancelling…';post('/api/game/cancel',{}).catch(()=>{})};
+/* keep-alive: the app quits only when this window is closed (or silent for a long time) */
+let pingFails=0;
+function ping(){fetch('/api/ping').then(r=>{if(r.ok)pingFails=0}).catch(()=>{if(++pingFails>=3&&!$('.gone'))document.body.insertAdjacentHTML('beforeend','<div class="gone"><div><h3>The app is not running</h3><p style="color:var(--mut)">It was closed or crashed. Start the EXE again — your exports and settings are kept.</p></div></div>')})}
+setInterval(ping,4000);ping();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)ping()});
+addEventListener('pagehide',()=>{try{navigator.sendBeacon('/api/bye','')}catch(e){}});
+addEventListener('pageshow',ping);
+function paintPakName(){const n=($('#modname').value||'RedVFX').replace(/\.pak$/i,'').replace(/(-WindowsNoEditor)?(_P)?$/i,'').replace(/[^A-Za-z0-9_\-]+/g,'_').replace(/^[_-]+|[_-]+$/g,'').slice(0,60)||'MHUR_VFX_Recolor';
+  $('#pakname').textContent='→ '+(/^zzz/i.test(n)?'ZZZ'+n.slice(3):'ZZZ_'+n)+'-WindowsNoEditor_P.pak'}
 
 /* ---------- colour maths ---------- */
 const hsv2rgb=(h,s,v)=>{const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
@@ -502,6 +531,17 @@ let previewVersion=0;
 function schedulePreview(){const version=++previewVersion;if(!S.group){renderPrev([],[]);renderInfo({},{});return}clearTimeout(pt);const request=cur(),key=gkey();pt=setTimeout(async()=>{
   try{const info=await post('/api/preview',request),p=info.palette;if(version!==previewVersion||!S.group||gkey()!==key)return;S.previews[key]=p;renderPrev(info.after?.length?info.after:p,info.before||S.group.palette);renderInfo(info,request);paintCard()}catch(e){if(version===previewVersion)toast(e.message,true)}},120)}
 const gkey=()=>S.char.id+'|'+S.vari+'|'+S.group.key;
+/* solid objects: per-skill choice (char:var:group), remembered; server falls back to its defaults */
+S.objChoices=store.get('objects',{});
+const objKey=g=>S.char.id+':'+S.vari+':'+g;
+function objectsOn(g){const k=objKey(g.key);if(k in S.objChoices)return S.objChoices[k];
+  if(g.key==='all')return S.groups.filter(x=>x.key!=='all').some(x=>objectsOn(x));return !!g.objects_default}
+function syncObjects(){const g=S.group,row=$('#objRow');if(!g||!g.object_textures){row.hidden=true;return}
+  row.hidden=false;$('#objects').checked=objectsOn(g);
+  $('#objHint').textContent=`Ice, stone, cracks, spikes: recolors ${g.object_textures} texture${g.object_textures>1?'s':''} of this move${g.objects_default?' (on by default here)':''}. Needs your game folder in ⚙ Settings.`}
+$('#objects').addEventListener('change',()=>{const on=$('#objects').checked,g=S.group;
+  const keys=g.key==='all'?S.groups.filter(x=>x.key!=='all'&&x.object_textures).map(x=>x.key):[g.key];
+  keys.forEach(k=>S.objChoices[objKey(k)]=on);store.set('objects',S.objChoices)});
 function renderInfo(i,r){const el=$('#prevInfo');if(!r.secondary){el.innerHTML='';return}
   const warn=[];if(!i.second_fields)warn.push('No effects matched the second color — tick other parts.');else if(!i.main_fields)warn.push('Everything went to the second color — untick some parts.');
   if(i.second_dark)warn.push('Very dark second colors can hide glows and fire; best on smoke and trails.');
@@ -628,8 +668,8 @@ async function loadGroups(v){
   S.vari=v;S.group=null;busy('Loading '+S.char.name+' effects…');
   try{S.groups=await api(`/api/groups?char=${S.char.id}&var=${v}`);}catch(e){toast(e.message,true)}
   idle();render();if(S.groups.length)pickGroup(S.groups[0].key)}
-function pickGroup(k){S.group=S.groups.find(g=>g.key==k);document.querySelectorAll('.card[data-k]').forEach(el=>el.classList.toggle('sel',el.dataset.k==k));refreshSide();
-  renderTop();const q=S.queue.find(x=>x.key==gkey());if(q){Object.assign(S.color,rgb2hsv(...q.hex.slice(1).match(/../g).map(x=>parseInt(x,16))));$('#mode').value=q.mode;$('#amount').value=q.amount??100;$('#amountv').textContent=(q.amount??100)+'%';$('#lvl').value=q.level_spread??60;$('#lvlv').textContent=(q.level_spread??60)+'%';$('#int').value=q.intensity*100;$('#intv').textContent=Math.round(q.intensity*100)+'%';$('#white').checked=q.tint_white;$('#ind').checked=q.indicators;$('#two').checked=!!q.secondary;$('#secBox').style.display=q.secondary?'block':'none';if(q.secondary){const a2=q.secondary.amount??q.amount??100;$('#amount2').value=a2;$('#amount2v').textContent=a2+'%';$('#sechex').value=q.secondary.hex.slice(1);$('#secpick').value=q.secondary.hex;document.querySelectorAll('.part').forEach(c=>c.checked=q.secondary.parts.includes(c.value))}syncMode();syncTwo()}
+function pickGroup(k){S.group=S.groups.find(g=>g.key==k);syncObjects();$('#diagBtn').hidden=!S.group;document.querySelectorAll('.card[data-k]').forEach(el=>el.classList.toggle('sel',el.dataset.k==k));refreshSide();
+  renderTop();const q=S.queue.find(x=>x.key==gkey());if(q){Object.assign(S.color,rgb2hsv(...q.hex.slice(1).match(/../g).map(x=>parseInt(x,16))));$('#mode').value=q.mode;$('#amount').value=q.amount??100;$('#amountv').textContent=(q.amount??100)+'%';$('#lvl').value=q.level_spread??60;$('#lvlv').textContent=(q.level_spread??60)+'%';$('#int').value=q.intensity*100;$('#intv').textContent=Math.round(q.intensity*100)+'%';$('#white').checked=q.tint_white;$('#ind').checked=q.indicators;$('#move').checked=!!q.movement;$('#two').checked=!!q.secondary;$('#secBox').style.display=q.secondary?'block':'none';if(q.secondary){const a2=q.secondary.amount??q.amount??100;$('#amount2').value=a2;$('#amount2v').textContent=a2+'%';$('#sechex').value=q.secondary.hex.slice(1);$('#secpick').value=q.secondary.hex;document.querySelectorAll('.part').forEach(c=>c.checked=q.secondary.parts.includes(c.value))}syncMode();syncTwo()}
   paintPicker();schedulePreview()}
 $('#apply').onclick=async()=>{
   if(!S.group)return;const a=cur(),key=gkey(),charName=S.char.name,label=S.group.label+(S.vari!='base'?' ('+S.vari+')':'');
@@ -637,26 +677,49 @@ $('#apply').onclick=async()=>{
   const item={...a,key,palette:p,charName,label};
   const i=S.queue.findIndex(x=>x.key==item.key);i>=0?S.queue[i]=item:S.queue.push(item);
   rememberColor(a.hex);toast(`Override added: ${charName} · ${label} → ${a.hex}`);render()}catch(e){toast(e.message,true)}};
-const settings=()=>({hex:hex(),mode:$('#mode').value,intensity:$('#int').value/100,amount:Number($('#amount').value),level_spread:Number($('#lvl').value),tint_white:$('#white').checked,indicators:$('#ind').checked,secondary:secondary()});
+const settings=()=>({hex:hex(),mode:$('#mode').value,intensity:$('#int').value/100,amount:Number($('#amount').value),level_spread:Number($('#lvl').value),tint_white:$('#white').checked,indicators:$('#ind').checked,movement:$('#move').checked,objects:$('#objRow').hidden?null:$('#objects').checked,secondary:secondary()});
+$('#move').addEventListener('change',schedulePreview);
 const overrides=()=>S.queue.map(({key,palette,charName,label,...r})=>r);
-$('#genAll').onclick=()=>runExport({global:settings(),exclude:[...S.excl],assignments:overrides()},'RedVFX_All');
-$('#export').onclick=()=>runExport({assignments:overrides(),exclude:[...S.excl]},'MHUR_VFX_Overrides');
+$('#genAll').onclick=async()=>{const n=S.chars.filter(c=>c.effects&&!S.excl.has(c.id)).length;
+  if(!await confirmBox('Generate for ALL characters?',`This recolors every skill of <b>${n} characters</b> with <span style="display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;background:${hex()}"></span> <b>${hex()}</b>, plus your ${S.queue.length} override(s). It can take a minute.`,'GENERATE ALL'))return;
+  runExport({global:{...settings(),objects:null},exclude:[...S.excl],assignments:overrides(),objects:S.objChoices},'RedVFX_All')};
+function confirmBox(title,html,ok){return new Promise(done=>{const prev=document.activeElement;
+  $('#mbox').innerHTML=`<h3>${esc(title)}</h3><p style="color:var(--mut);line-height:1.55">${html}</p><div class="mrow"><button class="btn main" id="cOk">${esc(ok)}</button><button class="btn sec" id="cNo" style="margin:0">CANCEL</button></div>`;
+  const close=v=>{$('#modal').classList.remove('open');modalClose=null;$('#mbox').innerHTML='';prev?.focus?.();done(v)};modalClose=()=>close(false);
+  $('#modal').classList.add('open');$('#cNo').focus();$('#cOk').onclick=()=>close(true);$('#cNo').onclick=()=>close(false)})}
+$('#export').onclick=()=>runExport({assignments:overrides(),exclude:[...S.excl],objects:S.objChoices},'MHUR_VFX_Overrides');
 async function runExport(body,def){
   const name=$('#modname').value.trim()||def;
   busy('Building pak…',0);
   try{const {job}=await post('/api/export',{name,...body});
     const res=await waitJob(job,'Building pak…');idle();if(body.global)rememberColor(body.global.hex);showResult(res)}catch(e){idle();toast(e.message,true)}}
-async function waitJob(id,txt){for(;;){const j=await api('/api/job?id='+id);busy(j.text||txt,j.total?j.done/j.total:0);
+async function waitJob(id,txt,cancellable){for(;;){const j=await api('/api/job?id='+id);busy(j.text||txt,j.total?j.done/j.total:0,cancellable);
   if(j.state=='done')return j.result;if(j.state=='error')throw new Error(j.error);await new Promise(r=>setTimeout(r,250))}}
 function showResult(r){
-  const miss=r.missing_count?`<div class="warn"><b>${r.missing_count} referenced material(s) are not in your library</b> so their color could not change (particle colors were still changed). Run <b>Update from game files</b> in ⚙ settings, or import them under <b>7 · Overrides</b>.<ul>${r.missing.slice(0,6).map(x=>`<li>${x}</li>`).join('')}${r.missing_count>6?'<li>…</li>':''}</ul></div>`:'';
-  const sh=r.shared&&r.shared.length?`<div class="warn"><b>Shared materials</b> are also used by effects you did not swap, so those effects change color too:<ul>${r.shared.slice(0,6).map(x=>`<li>${x}</li>`).join('')}${r.shared.length>6?`<li>…and ${r.shared.length-6} more</li>`:''}</ul></div>`:'';
-  const limits=[r.amount_unsupported?.length?`${r.amount_unsupported.length} effects have no supported spawn settings; their amount could not be reduced.`:'',r.two_color_shared?.length?`${r.two_color_shared.length} materials are shared by main and secondary parts. They keep the main color; emitter colors use the selected split.`:'',r.secondary_requested&&!r.secondary_fields?'No matching secondary color fields were found. Try different part categories.':''].filter(Boolean);
-  const notices=limits.map(t=>`<div class="warn">${t}</div>`).join('');
-  $('#mbox').innerHTML=`<h3>✅ Mod exported</h3><div class="kv"><span>File</span><span><b>${r.file}</b></span><span>Size</span><span>${(r.size/1048576).toFixed(2)} MB</span><span>Characters</span><span>${r.characters}</span><span>Assets patched</span><span>${r.assets}</span></div>${sh}${miss}${notices}
-   <div class="steps"><b>Install:</b> copy the .pak into your game's <code>HerovsGame/Content/Paks</code> folder (create a <code>~mods</code> subfolder if you like), then start the game.</div>
-   <div class="mrow"><a class="btn main" style="text-decoration:none;text-align:center" href="${r.url}" download>SAVE .PAK</a><button class="btn sec" style="margin:0" id="openf">OPEN EXPORTS FOLDER</button><button class="btn sec" style="margin:0" id="mclose">CLOSE</button></div>`;
-  modalClose=null;$('#modal').classList.add('open');$('#mclose').onclick=closeModal;$('#mclose').focus();$('#openf').onclick=()=>post('/api/open_exports',{})}
+  const li=l=>`<ul>${l.slice(0,8).map(x=>`<li>${esc(x)}</li>`).join('')}${l.length>8?`<li>…and ${l.length-8} more</li>`:''}</ul>`;
+  /* only things the player needs to know; everything technical goes into Details */
+  const notes=[];
+  if(r.textures_need_game)notes.push('⚠ Solid objects (ice, stone…) kept their original look: set your game folder in ⚙ Settings so their textures can be read, then export again.');
+  if(r.secondary_requested&&!r.secondary_fields)notes.push('⚠ The second color matched nothing — try other parts in <b>6 · Two colors</b>.');
+  if(r.shared?.length)notes.push(`ℹ ${r.shared.length} material(s) are also used by skills you didn't pick, so those skills change color too.`);
+  if(r.missing_count&&!r.library_updated)notes.push('💡 Tip: run <b>Update from game files</b> once in ⚙ Settings for the most complete colors.');
+  const det=[];
+  if(r.textures)det.push(`${r.textures} solid-object texture(s) recolored (ice, stone, cracks…).`);
+  if(r.movement_skipped)det.push(`${r.movement_skipped} walking/landing dust effects kept their original color (switch on “Recolor walking dust” to include them).`);
+  if(r.two_color_shared?.length)det.push(`${r.two_color_shared.length} material(s) are used by both color parts and keep the main color.`+li(r.two_color_shared));
+  if(r.amount_unsupported?.length)det.push(`${r.amount_unsupported.length} effect(s) have no particle-amount setting, so their amount stayed at 100 %.`);
+  if(r.missing_count)det.push(`${r.missing_count} referenced material(s) were not found in your library; the particle colors on top of them still changed.`+li(r.missing));
+  const chars=r.characters===1?'1 character':r.characters+' characters';
+  $('#mbox').innerHTML=`<div class="done"><div class="ok">✓</div><div><h3 style="margin:0">Your mod is ready</h3>
+     <div style="color:var(--mut);font-size:13px;margin-top:3px">${chars} · ${r.assets} effect files${r.textures?` · ${r.textures} textures`:''} · ${(r.size/1048576).toFixed(2)} MB</div></div></div>
+   <div class="file"><code>${esc(r.file)}</code></div>
+   ${notes.map(t=>`<div class="note">${t}</div>`).join('')}
+   <div class="steps">${r.can_install?'<b>Install into game</b> copies it to <code>Paks\\Mods\\MHUR VFX Color Swapper</code> — restart the game to see it.':'Copy the .pak into <code>HerovsGame\\Content\\Paks\\Mods\\MHUR VFX Color Swapper</code> (create the folders if needed), then restart the game. Set your game folder in ⚙ Settings to install with one click.'}</div>
+   ${det.length?`<details class="det"><summary>Details</summary>${det.map(t=>`<div>${t}</div>`).join('')}</details>`:''}
+   <div class="mrow">${r.can_install?'<button class="btn main" id="inst">INSTALL INTO GAME</button>':`<a class="btn main" style="text-decoration:none" href="${r.url}" download>SAVE .PAK</a>`}<button class="btn sec" style="margin:0" id="openf">OPEN FOLDER</button><button class="btn sec" style="margin:0" id="mclose">CLOSE</button></div>`;
+  modalClose=null;$('#modal').classList.add('open');$('#mclose').onclick=closeModal;$('#openf').onclick=()=>post('/api/open_exports',{});
+  const inst=$('#inst');if(inst){inst.focus();inst.onclick=async()=>{inst.disabled=true;inst.textContent='INSTALLING…';
+    try{const x=await post('/api/install',{file:r.file});inst.textContent='✓ INSTALLED';toast('Installed to '+x.folder+' — restart the game to see it')}catch(e){inst.disabled=false;inst.textContent='INSTALL INTO GAME';toast(e.message,true)}}}else $('#mclose').focus()}
 $('#modal').onclick=e=>{if(e.target.id=='modal')closeModal()};
 /* keyboard: Enter/Space on cards, Esc closes, / focuses search */
 document.addEventListener('keydown',e=>{
@@ -670,7 +733,7 @@ $('#menuBtn').onclick=()=>document.body.classList.remove('drawer');$('#scrim').o
 /* remember which sidebar sections are open */
 document.querySelectorAll('details.sec').forEach(d=>{const st=store.get('sec',{});if(d.dataset.sec in st)d.open=st[d.dataset.sec];
   d.addEventListener('toggle',()=>{const st=store.get('sec',{});st[d.dataset.sec]=d.open;store.set('sec',st)})});
-$('#modname').value=store.get('modname','');$('#modname').addEventListener('change',()=>store.set('modname',$('#modname').value.trim()));
+$('#modname').value=store.get('modname','');$('#modname').addEventListener('change',()=>store.set('modname',$('#modname').value.trim()));$('#modname').addEventListener('input',paintPakName);paintPakName();
 
 $('#importLink').onclick=()=>$('#importFile').click();
 $('#importPath').onclick=async()=>{const p=await ask('Import extracted game files','Full path of the folder, .zip or .pak','','C:\\Exports\\HerovsGame\\Content\\Character');if(!p)return;busy('Importing default assets… (this can take a while)');
@@ -683,10 +746,11 @@ $('#pfile').onchange=async e=>{const f=e.target.files[0];if(!f||!S.char)return;c
 async function refresh(){const st=await api('/api/state');S.chars=st.characters;if(S.char)S.char=S.chars.find(c=>c.id==S.char.id)||null}
 (async function boot(){
   await prefsReady;paintPicker();render();busy('Loading character assets…',0);
-  for(;;){const st=await api('/api/state');
+  for(;;){let st;try{st=await api('/api/state')}catch(e){await new Promise(r=>setTimeout(r,1000));continue}
     if(st.status.state=='error'){idle();toast(st.status.text,true);return}
     if(st.status.state=='ready'){S.chars=st.characters;S.ready=true;break}
-    busy(st.status.text||'Loading character assets…',st.status.done/st.status.total);await new Promise(r=>setTimeout(r,300))}
+    busy(st.status.text||'Loading character assets…',st.status.done/st.status.total,st.status.game_busy);await new Promise(r=>setTimeout(r,300))}
+  $('#lcancel').textContent='Cancel game update';
   idle();render();loadGameInfo()})();
 </script>
 </body>
